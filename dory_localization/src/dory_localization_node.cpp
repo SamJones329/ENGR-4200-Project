@@ -1,9 +1,11 @@
 #include "ros/ros.h"
 #include "std_msgs/String.h"
+#include "particle_filter.cpp"
 
 #include <sstream>
 
 int main(int argc, char **argv) {
+    DoryLoc::ParticleFilter pf;
     ros::init(argc, argv, "dory_localization");
     ros::NodeHandle n;
     ros::Publisher chatter_pub = n.advertise<std_msgs::String>("chatter", 1000);
