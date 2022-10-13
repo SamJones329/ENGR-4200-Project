@@ -1,6 +1,6 @@
 #include <iostream>
 #include <vector>
-#include <Eigen/Core>
+#include <eigen3/Eigen/Dense>
 
 using namespace std;
 using namespace Eigen;
@@ -13,7 +13,6 @@ namespace DoryLoc {
         double nEff = 0;
 
         private:
-        vector<double[4]> map;
         double odomLinSigma;
         double odomAngSigma;
         double measRngNoise;
@@ -35,9 +34,12 @@ namespace DoryLoc {
 
 
         public:
-        ParticleFilter(vector<double[4]> roomMap, int num, double odomLinSigma, double odomAngSigma, 
+        ParticleFilter() {
+            ParticleFilter(500, 0., 0., 0., 0., 0., 0., 0.);
+        }
+
+        ParticleFilter(int num, double odomLinSigma, double odomAngSigma, 
                  double measRngNoise, double measAngNoise, double xInit,double yInit,double thetaInit) {
-            this->map = roomMap;
             this->num = num;
             this->odomLinSigma = odomLinSigma;
             this->odomAngSigma = odomAngSigma;
