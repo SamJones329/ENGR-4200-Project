@@ -13,8 +13,6 @@ namespace DoryLoc {
         double nEff = 0;
 
         private:
-        double odomLinSigma;
-        double odomAngSigma;
         double measRngNoise;
         double measYawNoise;
 
@@ -48,8 +46,6 @@ namespace DoryLoc {
         ParticleFilter(int num, double measRngNoise, double measYawNoise, 
                 double xInit, double yInit,double yawInit) {
             this->num = num;
-            this->odomLinSigma = odomLinSigma;
-            this->odomAngSigma = odomAngSigma;
             this->measRngNoise = measRngNoise;
             this->measYawNoise = measYawNoise;
             this->mapXmin = mapXmin;
