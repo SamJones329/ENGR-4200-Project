@@ -17,9 +17,9 @@ namespace DoryLoc {
         double odomLinSigma;
         double odomAngSigma;
         double measRngNoise;
-        double measAngNoise;
         default_random_engine generator;
         uniform_real_distribution<double> distribution;
+        double measYawNoise;
 
         double mapXmin;
         double mapXmax;
@@ -43,19 +43,20 @@ namespace DoryLoc {
 
         public:
         ParticleFilter() {
-            ParticleFilter(500, 0., 0., 0., 0., 0., 0., 0.);
+            // DVL A50 WL-21035-2 TODO - find out if have standard or performance version
+            // standard has long term sensor (velocity) accuracy of +-1.01%, perf has +-0.1%
+            ParticleFilter(500, 0.0101, 0.0101, 0., 0., 0.);
         }
 
-        ParticleFilter(int num, double odomLinSigma, double odomAngSigma, 
-                 double measRngNoise, double measAngNoise, double xInit,
-                 double yInit,double thetaInit) {
+        ParticleFilter(int num, double measRngNoise, double measYawNoise, 
+                double xInit, double yInit,double yawInit) {
             this->num = num;
             this->odomLinSigma = odomLinSigma;
             this->odomAngSigma = odomAngSigma;
             this->measRngNoise = measRngNoise;
-            this->measAngNoise = measAngNoise;
             uniform_real_distribution<double> distribution(0,1./num);
             this->distribution = distribution;
+            this->measYawNoise = measYawNoise;
             this->mapXmin = mapXmin;
             this->mapXmax = mapXmax;
             this->mapYmin = mapYmin;
@@ -68,6 +69,10 @@ namespace DoryLoc {
             this->pxyz = xyz;
             
 
+            this->valRng = 1.0 / (measRngNoise * sqrt(2 * M_PI));
+            this->rngSigSq2 = 2 * pow(measRngNoise, 2);
+            this->valAng = 1.0 / (measYawNoise * sqrt(2 * M_PI));
+            this->angSigSq2 = 2 * pow(measYawNoise, 2);
         }
 
         /**
@@ -118,15 +123,14 @@ namespace DoryLoc {
         void weight(double* odom) {
             VectorXd weights = ArrayXd::Zero(this->num);
             
-            
+            double x = odom[0], y = odom[1], z = odom[2], yaw = odom[3];
             for(int i = 0; i < this->num; i++) {
-                double x = pxyz(0,i);
-                double y = pxyz(1,i);
-                double z = pxyz(2,i);
-                double wx = 1 / ( measRngNoise * sqrt(2*M_PI) * exp(-pow(x-odom[0], 2) / (2*pow(measRngNoise, 2))) );
-                double wy = 1 / ( measRngNoise * sqrt(2*M_PI) * exp(-pow(y-odom[1], 2) / (2*pow(measRngNoise, 2))) );
-                double wz = 1 / ( measRngNoise * sqrt(2*M_PI) * exp(-pow(z-odom[2], 2) / (2*pow(measRngNoise, 2))) );
-                weights(i) = wx + wy + wz;
+                double px = pxyz(0,i), py = pxyz(1,i), pz = pxyz(2,i), pyaw = pYaw(i);
+                double wx = this->valRng * exp(-pow(x-px, 2) / this->rngSigSq2);
+                double wy = this->valRng * exp(-pow(y-py, 2) / this->rngSigSq2);
+                double wz = this->valRng * exp(-pow(z-pz, 2) / this->rngSigSq2);
+                double wyaw = 1 / ( measYawNoise * sqrt(2*M_PI) * exp(-pow(z-odom[2], 2) / (2*pow(measYawNoise, 2))) );
+                weights(i) = wx + wy + wz + wyaw;
             }
             double wsum = weights.sum();
             weights /= wsum;
