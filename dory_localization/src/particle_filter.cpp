@@ -1,6 +1,7 @@
 #include <iostream>
 #include <vector>
 #include <eigen3/Eigen/Dense>
+#include <random>
 
 using namespace std;
 using namespace Eigen;
@@ -17,6 +18,8 @@ namespace DoryLoc {
         double odomAngSigma;
         double measRngNoise;
         double measAngNoise;
+        default_random_engine generator;
+        uniform_real_distribution<double> distribution;
 
         double mapXmin;
         double mapXmax;
@@ -51,6 +54,8 @@ namespace DoryLoc {
             this->odomAngSigma = odomAngSigma;
             this->measRngNoise = measRngNoise;
             this->measAngNoise = measAngNoise;
+            uniform_real_distribution<double> distribution(0,1./num);
+            this->distribution = distribution;
             this->mapXmin = mapXmin;
             this->mapXmax = mapXmax;
             this->mapYmin = mapYmin;
@@ -61,6 +66,7 @@ namespace DoryLoc {
             this->pYaw = ang;
             MatrixXd xyz = ArrayXXd::Zero(3,num);
             this->pxyz = xyz;
+            
 
         }
 
@@ -127,7 +133,33 @@ namespace DoryLoc {
             this->pWei = weights;
         }
 
-        void resample() {
+        void resample(double* odom) {
+            VectorXd X(this->num);
+
+            VectorXd Y(this->num);;
+
+            VectorXd Th(this->num);
+
+            int M = this->num;
+            double iM = 1. / M;
+            double c = this->pWei(0);
+            int i = 0;
+            double r = distribution(generator);
+            double U = 0;
+            for(int m = 0; m < M; m++) {
+                U = r + (m-1) * iM;
+                while(U > c){
+                    i++;
+                    if(i >= this->num){
+                        i--;
+                    }
+                    c+= this->pWei(i);
+                }
+                X(m) = this->pxyz(0,i);
+                Y(m) = this->pxyz(1,i);
+                Th(m) = this->pYaw(0,i);
+            }
+
 
         }
     };
