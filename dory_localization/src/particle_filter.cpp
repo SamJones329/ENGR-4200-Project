@@ -81,7 +81,7 @@ namespace DoryLoc {
          * odom - incremental odometry [delta_x, delta_y, delta_yaw] in the 
          * vehicle frame
         */
-        void predict(double* odom) {
+        void predict(vector<double> odom) {
 
             if(odom[0] == 1 && odom[1] == 0 && odom[2] == 0) {
                 this->moving = false;
@@ -120,7 +120,7 @@ namespace DoryLoc {
             this->moving = true;
         }
 
-        void weight(double* odom) {
+        void weight(vector<double> odom) {
             VectorXd weights = ArrayXd::Zero(this->num);
             
             double x = odom[0], y = odom[1], z = odom[2], yaw = odom[3];
