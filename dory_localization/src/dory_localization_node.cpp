@@ -15,9 +15,9 @@ namespace DoryLoc {
         ros::Subscriber dvlSub;
         ros::Subscriber pixhawkSub;
         Eigen::Vector4d lastOdom;
-        std::default_random_engine generator;
-        std::normal_distribution<double> pixhawkDist(0, 0.05);
-        std::normal_distribution<double> dvlDist(0, 0.01);
+        static std::default_random_engine generator;
+        static std::normal_distribution<double> pixhawkDist(0, 0.05);
+        static std::normal_distribution<double> dvlDist(0, 0.01);
 
         public:
 
