@@ -10,20 +10,20 @@
 // https://yostlabs.com/product/3-space-nano/ - "sensor assist" AHRS on A50, specs on page 
 namespace DoryLoc {
     class Node {
+        public:
 
         DoryLoc::ParticleFilter pf;
         ros::Subscriber dvlSub;
         ros::Subscriber pixhawkSub;
         Eigen::Vector4d lastOdom;
-        static std::default_random_engine generator;
-        static std::normal_distribution<double> pixhawkDist(0, 0.05);
-        static std::normal_distribution<double> dvlDist(0, 0.01);
+        std::mt19937 mt;
+        std::normal_distribution<double> pixhawkDist;
+        std::normal_distribution<double> dvlDist;
 
-        public:
 
         void dvlOdomCallback(const nav_msgs::Odometry& odom) {
             geometry_msgs::Point pos = odom.pose.pose.position;
-            double noise = generator(dvlDist);
+            double noise = dvlDist(mt);
             double x = pos.x, y = pos.y, z = pos.z, yaw = odom.pose.pose.orientation.z;
             x += noise;
             y += noise;
@@ -35,7 +35,7 @@ namespace DoryLoc {
 
         void pixhawkOdomCallback(const nav_msgs::Odometry& odom) {
             geometry_msgs::Point pos = odom.pose.pose.position;
-            double noise = generator(pixhawkDist);
+            double noise = pixhawkDist(mt);
             double x = pos.x, y = pos.y, z = pos.z, yaw = odom.pose.pose.orientation.z;
             x += noise;
             y += noise;
@@ -55,7 +55,11 @@ namespace DoryLoc {
             lastOdom(3) = yaw; 
         }
 
-        Node() {
+        Node(std::mt19937 gen, std::normal_distribution<double> pixhawkDistribution, std::normal_distribution<double> dvlDistribution) {
+            mt = gen;
+            pixhawkDist = pixhawkDistribution;
+            dvlDist = dvlDistribution;
+
             ros::NodeHandle n;
 
             // dvlSub = n.subscribe<nav_msgs::Odometry>("DVL_ODOM", 10, dvlOdomCallback); 
@@ -75,7 +79,11 @@ namespace DoryLoc {
 int main(int argc, char **argv) {
 
     ros::init(argc, argv, "dory_localization");
-    DoryLoc::Node node;
+    std::random_device rd;
+    std::mt19937 mt(rd());
+    std::normal_distribution<double> pixhawkDist{0., 0.05};
+    std::normal_distribution<double> dvlDist{0., 0.05};
+    DoryLoc::Node node(mt, pixhawkDist, dvlDist);
 
     /*
         DVL_ODOM nav_msgs.Odometry {position: {x, y, z}, oritatation: {x (roll), y (pitch), z (yaw)} - Fused integration velocity and IMU
