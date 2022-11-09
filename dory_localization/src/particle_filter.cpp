@@ -1,6 +1,7 @@
 #include <iostream>
 #include <vector>
 #include <eigen3/Eigen/Dense>
+#include <random>
 
 using namespace std;
 using namespace Eigen;
@@ -14,6 +15,8 @@ namespace DoryLoc {
 
         private:
         double measRngNoise;
+        default_random_engine generator;
+        uniform_real_distribution<double> distribution;
         double measYawNoise;
 
         double mapXmin;
@@ -47,6 +50,8 @@ namespace DoryLoc {
                 double xInit, double yInit,double yawInit) {
             this->num = num;
             this->measRngNoise = measRngNoise;
+            uniform_real_distribution<double> distribution(0,1./num);
+            this->distribution = distribution;
             this->measYawNoise = measYawNoise;
             this->mapXmin = mapXmin;
             this->mapXmax = mapXmax;
@@ -58,6 +63,7 @@ namespace DoryLoc {
             this->pYaw = ang;
             MatrixXd xyz = ArrayXXd::Zero(3,num);
             this->pxyz = xyz;
+            
 
             this->valRng = 1.0 / (measRngNoise * sqrt(2 * M_PI));
             this->rngSigSq2 = 2 * pow(measRngNoise, 2);
@@ -71,7 +77,7 @@ namespace DoryLoc {
          * odom - incremental odometry [delta_x, delta_y, delta_yaw] in the 
          * vehicle frame
         */
-        void predict(double* odom) {
+        void predict(vector<double> odom) {
 
             if(odom[0] == 1 && odom[1] == 0 && odom[2] == 0) {
                 this->moving = false;
@@ -110,7 +116,7 @@ namespace DoryLoc {
             this->moving = true;
         }
 
-        void weight(double* odom) {
+        void weight(vector<double> odom) {
             VectorXd weights = ArrayXd::Zero(this->num);
             
             double x = odom[0], y = odom[1], z = odom[2], yaw = odom[3];
@@ -127,7 +133,33 @@ namespace DoryLoc {
             this->pWei = weights;
         }
 
-        void resample() {
+        void resample(double* odom) {
+            VectorXd X(this->num);
+
+            VectorXd Y(this->num);;
+
+            VectorXd Th(this->num);
+
+            int M = this->num;
+            double iM = 1. / M;
+            double c = this->pWei(0);
+            int i = 0;
+            double r = distribution(generator);
+            double U = 0;
+            for(int m = 0; m < M; m++) {
+                U = r + (m-1) * iM;
+                while(U > c){
+                    i++;
+                    if(i >= this->num){
+                        i--;
+                    }
+                    c+= this->pWei(i);
+                }
+                X(m) = this->pxyz(0,i);
+                Y(m) = this->pxyz(1,i);
+                Th(m) = this->pYaw(0,i);
+            }
+
 
         }
     };
