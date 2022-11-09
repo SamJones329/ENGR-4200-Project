@@ -1,0 +1,19 @@
+<launch>
+  <!-- Source data -->
+  <include file="$(find ENGR-4200-Project)/launch/bagfile_testing.launch">
+  </include>
+  <node
+      pkg="dory_localization"
+      type="node"
+      name="dory_localization_node"
+      output="screen"
+  />
+  <!-- RViz -->
+  <node 
+    pkg="rviz" 
+    type="rviz" 
+    name="rviz" 
+    args="-d $(find ENGR-4200-Project)/config/pf.rviz" 
+    output="screen"/>
+  />
+</launch>
