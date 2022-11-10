@@ -20,9 +20,9 @@ namespace DoryLoc {
         std::normal_distribution<double> dvlDist;
 
 
-        void dvlOdomCallback(const nav_msgs::Odometry& odom);
+        void dvlOdomCallback(const nav_msgs::Odometry::ConstPtr& odom);
 
-        void pixhawkOdomCallback(const nav_msgs::Odometry& odom);
+        void pixhawkOdomCallback(const nav_msgs::Odometry::ConstPtr& odom);
 
         Node(std::mt19937 gen, std::normal_distribution<double> pixhawkDistribution, std::normal_distribution<double> dvlDistribution);
 

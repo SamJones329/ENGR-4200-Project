@@ -12,7 +12,7 @@
   
     <arg name="dataset3" default="true"/>
   
-    <arg if="$(arg dataset3)" name="bfName" default="$(find ENGR-4200-Project)/bags/dataset3.bag"/>
+    <arg if="$(arg dataset3)" name="bfName" default="$(find dory_localization)/bags/dataset3.bag"/>
 
     <!-- Bagfile -->
     <group if="$(arg bagfile)">

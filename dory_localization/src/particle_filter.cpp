@@ -1,4 +1,4 @@
-#include <particle_filter.hpp>
+#include "../include/particle_filter.hpp"
 
 void DoryLoc::ParticleFilter::setParticleAngles(VectorXd newAngles) {
     this->pYaw = newAngles;
@@ -9,7 +9,7 @@ DoryLoc::ParticleFilter::ParticleFilter(int num, double measRngNoise, double mea
         double xInit, double yInit,double yawInit) {
     this->num = num;
     this->measRngNoise = measRngNoise;
-    uniform_real_distribution<double> distribution(0,1./num);
+    std::uniform_real_distribution<double> distribution(0,1./num);
     this->distribution = distribution;
     this->measYawNoise = measYawNoise;
     this->mapXmin = mapXmin;
@@ -30,7 +30,7 @@ DoryLoc::ParticleFilter::ParticleFilter(int num, double measRngNoise, double mea
     this->angSigSq2 = 2 * pow(measYawNoise, 2);
 }
 
-void DoryLoc::ParticleFilter::predict(vector<double> odom) {
+void DoryLoc::ParticleFilter::predict(std::vector<double> odom) {
 
     if(odom[0] == 1 && odom[1] == 0 && odom[2] == 0) {
         this->moving = false;
@@ -69,7 +69,7 @@ void DoryLoc::ParticleFilter::predict(vector<double> odom) {
     this->moving = true;
 }
 
-void DoryLoc::ParticleFilter::weight(vector<double> odom) {
+void DoryLoc::ParticleFilter::weight(std::vector<double> odom) {
     VectorXd weights = ArrayXd::Zero(this->num);
     
     double x = odom[0], y = odom[1], z = odom[2], yaw = odom[3];

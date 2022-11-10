@@ -1,23 +1,34 @@
-#include <dory_localization_node.hpp>
+#include "../include/dory_localization_node.hpp"
+
+/*
+
+/home/active_stereo/catkin_ws/src/ENGR-4200-Project/dory_localization/src/dory_localization_node.cpp:47:82:   
+required from here /usr/include/boost/function/function_template.hpp:231:11: 
+error: no match for call to 
+(boost::_mfi::mf1
+    <void, DoryLoc::Node, const nav_msgs::Odometry_<std::allocator<void> >&>
+) (const boost::shared_ptr<const nav_msgs::Odometry_<std::allocator<void> > >&)
+
+*/
 
 // DVL A50 WL-21035-2 (assuming standard) long term sensor accuracy +-1.01%
 // https://yostlabs.com/product/3-space-nano/ - "sensor assist" AHRS on A50, specs on page 
-void DoryLoc::Node::dvlOdomCallback(const nav_msgs::Odometry& odom) {
-    geometry_msgs::Point pos = odom.pose.pose.position;
+void DoryLoc::Node::dvlOdomCallback(const nav_msgs::Odometry::ConstPtr& odom) {
+    geometry_msgs::Point pos = odom->pose.pose.position;
     double noise = dvlDist(mt);
-    double x = pos.x, y = pos.y, z = pos.z, yaw = odom.pose.pose.orientation.z;
+    double x = pos.x, y = pos.y, z = pos.z, yaw = odom->pose.pose.orientation.z;
     x += noise;
     y += noise;
     z += noise;
     yaw += noise;
     std::vector<double> odomVec {x, y, z, yaw};
-    pf.weight(odomVec);
+    this->pf.weight(odomVec);
 }
 
-void DoryLoc::Node::pixhawkOdomCallback(const nav_msgs::Odometry& odom) {
-    geometry_msgs::Point pos = odom.pose.pose.position;
+void DoryLoc::Node::pixhawkOdomCallback(const nav_msgs::Odometry::ConstPtr& odom) {
+    geometry_msgs::Point pos = odom->pose.pose.position;
     double noise = pixhawkDist(mt);
-    double x = pos.x, y = pos.y, z = pos.z, yaw = odom.pose.pose.orientation.z;
+    double x = pos.x, y = pos.y, z = pos.z, yaw = odom->pose.pose.orientation.z;
     x += noise;
     y += noise;
     z += noise;
@@ -29,25 +40,25 @@ void DoryLoc::Node::pixhawkOdomCallback(const nav_msgs::Odometry& odom) {
         z - lastOdom(2),
         yaw - lastOdom(3)
     };
-    pf.predict(odomVec);
-    lastOdom(0) = x;
-    lastOdom(1) = y;
-    lastOdom(2) = z;
-    lastOdom(3) = yaw; 
+    this->pf.predict(odomVec);
+    this->lastOdom(0) = x;
+    this->lastOdom(1) = y;
+    this->lastOdom(2) = z;
+    this->lastOdom(3) = yaw; 
 }
 
 DoryLoc::Node::Node(std::mt19937 gen, std::normal_distribution<double> pixhawkDistribution, std::normal_distribution<double> dvlDistribution) {
-    mt = gen;
-    pixhawkDist = pixhawkDistribution;
-    dvlDist = dvlDistribution;
+    this->mt = gen;
+    this->pixhawkDist = pixhawkDistribution;
+    this->dvlDist = dvlDistribution;
 
     ros::NodeHandle n;
 
     // dvlSub = n.subscribe<nav_msgs::Odometry>("DVL_ODOM", 10, dvlOdomCallback); 
-    dvlSub = n.subscribe<nav_msgs::Odometry>("odom", 1000, &Node::dvlOdomCallback); 
+    this->dvlSub = n.subscribe<nav_msgs::Odometry>("odom", 1000, &Node::dvlOdomCallback, this); 
 
     // pixhawkSub = n.subscribe<nav_msgs::Odometry>("ROV_ODOMETRY", 10, pixhawkOdomCallback);
-    pixhawkSub = n.subscribe<nav_msgs::Odometry>("odom", 1000, &Node::pixhawkOdomCallback);
+    this->pixhawkSub = n.subscribe<nav_msgs::Odometry>("odom", 1000, &Node::pixhawkOdomCallback, this);
 }
 
 

@@ -2,7 +2,6 @@
 #include <Eigen/Dense>
 #include <random>
 
-using namespace std;
 using namespace Eigen;
 
 namespace DoryLoc {
@@ -12,12 +11,11 @@ namespace DoryLoc {
         bool moving;
         double nEff;
 
-        private:
         double odomLinSigma;
         double odomAngSigma;
         double measRngNoise;
-        mt19937 generator;
-        uniform_real_distribution<double> distribution;
+        std::mt19937 generator;
+        std::uniform_real_distribution<double> distribution;
         double measYawNoise;
 
         double mapXmin;
@@ -36,8 +34,6 @@ namespace DoryLoc {
 
         void setParticleAngles(VectorXd newAngles);
 
-
-        public:
         ParticleFilter() {
             // DVL A50 WL-21035-2 TODO - find out if have standard or performance version
             // standard has long term sensor (velocity) accuracy of +-1.01%, perf has +-0.1%
@@ -53,9 +49,9 @@ namespace DoryLoc {
          * odom - incremental odometry [delta_x, delta_y, delta_yaw] in the 
          * vehicle frame
         */
-        void predict(vector<double> odom);
+        void predict(std::vector<double> odom);
 
-        void weight(vector<double> odom);
+        void weight(std::vector<double> odom);
 
         void resample(double* odom);
     };
