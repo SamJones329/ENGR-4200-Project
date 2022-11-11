@@ -129,12 +129,14 @@ void DoryLoc::Node::loop() {
         m.color.r = 0.0;
         m.color.g = 1.0;
         m.color.b = 1.0;
-        double scale = 0.01 + 0.055 * particle[4];
+        double scale = 0.01 + 2. * particle[4];
         m.scale.x = scale;
         m.scale.y = scale;
         m.scale.z = 0.05;
         particleMarkersMsg.markers.push_back(m);
+        std::cout << 'w' << particle[4];
     }
+    std::cout << std::endl;
     allParticlePub.publish(particlesMsg);
     allParticleMarkerPub.publish(particleMarkersMsg);
 }

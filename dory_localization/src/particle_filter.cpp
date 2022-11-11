@@ -27,7 +27,7 @@ DoryLoc::ParticleFilter::ParticleFilter(int num, double measRngNoise, double mea
         for(int j = 0; j < 2; j++) {
             pxyz(j,i) = posSpread(generator);
         }
-        pYaw(i) = angSpread(generator);
+        // pYaw(i) = angSpread(generator);
     }
 }
 
@@ -82,7 +82,7 @@ void DoryLoc::ParticleFilter::weight(std::vector<double> odom) {
         double wy = this->valRng * exp(-pow(y-py, 2) / this->rngSigSq2);
         double wz = this->valRng * exp(-pow(z-pz, 2) / this->rngSigSq2);
         double wyaw = 1 / ( measYawNoise * sqrt(2*M_PI) * exp(-pow(z-odom[2], 2) / (2*pow(measYawNoise, 2))) );
-        weights(i) = wx + wy + wz + wyaw;
+        weights(i) = wx * wy * wz * wyaw;
     }
     double wsum = weights.sum();
     weights /= wsum;
