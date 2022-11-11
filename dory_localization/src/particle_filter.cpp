@@ -27,7 +27,7 @@ DoryLoc::ParticleFilter::ParticleFilter(int num, double measRngNoise, double mea
         for(int j = 0; j < 2; j++) {
             pxyz(j,i) = posSpread(generator);
         }
-        // pYaw(i) = angSpread(generator);
+        pYaw(i) = angSpread(generator);
     }
 }
 
@@ -90,11 +90,13 @@ void DoryLoc::ParticleFilter::weight(std::vector<double> odom) {
 }
 
 void DoryLoc::ParticleFilter::resample() {
-    VectorXd X(this->num);
 
+    std::uniform_real_distribution<double> resamplingNoise(-measRngNoise, measRngNoise);
+    std::uniform_real_distribution<double> resamplingAngNoise(-measYawNoise, measYawNoise);
+
+    VectorXd X(this->num);
     VectorXd Y(this->num);
     VectorXd Z(num);
-
     VectorXd Th(this->num);
 
     int M = this->num;
@@ -112,10 +114,10 @@ void DoryLoc::ParticleFilter::resample() {
             }
             c+= this->pWei(i);
         }
-        X(m) = this->pxyz(0,i);
-        Y(m) = this->pxyz(1,i);
-        Z(m) = this->pxyz(2,i);
-        Th(m) = this->pYaw(i);
+        X(m) = this->pxyz(0,i) + resamplingNoise(generator);
+        Y(m) = this->pxyz(1,i) + resamplingNoise(generator);
+        Z(m) = this->pxyz(2,i) + resamplingNoise(generator);
+        Th(m) = this->pYaw(i) + resamplingAngNoise(generator);
     }
     pxyz.row(0) = X;
     pxyz.row(1) = Y;
