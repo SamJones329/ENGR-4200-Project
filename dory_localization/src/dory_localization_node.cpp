@@ -32,9 +32,9 @@ void DoryLoc::Node::pixhawkOdomCallback(const nav_msgs::Odometry::ConstPtr& odom
 
     std::cout << "got pt from pixhawk " << pos.x << ", " << pos.y << ", " << pos.z << ", " << odom->pose.pose.orientation.z << std::endl;
     // double noise = pixhawkDist(mt);
-    double x = pos.x;
-    double y = pos.y; 
-    double z = pos.z;
+    double deltax = pos.x - lastOdom(0);
+    double deltay = pos.y - lastOdom(1); 
+    double deltaz = pos.z - lastOdom(2);
     auto msgquat = odom->pose.pose.orientation; 
     tf2::Quaternion tfquat;
     tf2::convert(msgquat , tfquat);
@@ -47,18 +47,20 @@ void DoryLoc::Node::pixhawkOdomCallback(const nav_msgs::Odometry::ConstPtr& odom
     // yaw += noise;
     std::cout << "lastYaw: " << lastOdom(3) << std::endl;
     std::cout << "angdiffcb: " << yaw - lastOdom(3) << std::endl;
+    double cosLastYaw = cos(lastOdom(3));
+    double sinLastYaw = sin(lastOdom(3));
     std::vector<double> odomVec {
-        x - lastOdom(0),
-        y - lastOdom(1),
-        z - lastOdom(2),
+        deltax * cosLastYaw + deltay * sinLastYaw,
+        deltay * cosLastYaw - deltax * sinLastYaw,
+        0.,
         yaw - lastOdom(3)
     };
     std::cout << "got odomVec" << std::endl;
     this->pf.predict(odomVec);
     std::cout << "finished prediction" << std::endl;
-    this->lastOdom(0) = x;
-    this->lastOdom(1) = y;
-    this->lastOdom(2) = z;
+    this->lastOdom(0) = pos.x;
+    this->lastOdom(1) = pos.y;
+    this->lastOdom(2) = pos.z;
     this->lastOdom(3) = yaw; 
 }
 

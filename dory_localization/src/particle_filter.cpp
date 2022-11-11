@@ -79,7 +79,7 @@ void DoryLoc::ParticleFilter::predict(std::vector<double> odom) {
     R(1,0) = angSin;
     R(1,1) = angCos;
 
-    std::cout << "butt: " << R(0).size() << std::endl;
+    // std::cout << "butt: " << R(0).size() << std::endl;
 
     // std::vector<Eigen::Matrix<double,1,500>> R1;
     // std::vector<Eigen::Matrix<double,1,500>> R2;
