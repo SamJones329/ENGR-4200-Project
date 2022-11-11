@@ -15,8 +15,7 @@ error: no match for call to
 // https://yostlabs.com/product/3-space-nano/ - "sensor assist" AHRS on A50, specs on page 
 void DoryLoc::Node::dvlOdomCallback(const nav_msgs::Odometry::ConstPtr& odom) {
     geometry_msgs::Point pos = odom->pose.pose.position;
-    std::cout << "got pt from dvl " << pos.x << ", " << pos.y << ", " << pos.z << std::endl;
-    // double noise = dvlDist(mt);
+    double noise = dvlDist(mt);
     double x = pos.x, y = pos.y, z = pos.z; 
     auto msgquat = odom->pose.pose.orientation; 
     tf2::Quaternion tfquat;
@@ -24,10 +23,10 @@ void DoryLoc::Node::dvlOdomCallback(const nav_msgs::Odometry::ConstPtr& odom) {
     tf2::Matrix3x3 m(tfquat);
     double roll, pitch, yaw;
     m.getRPY(roll, pitch, yaw);
-    // x += noise;
-    // y += noise;
-    // z += noise;
-    // yaw += noise;
+    x += noise;
+    y += noise;
+    z += noise;
+    yaw += noise;
     std::vector<double> odomVec {x, y, z, yaw};
     this->pf.weight(odomVec);
 }
@@ -35,7 +34,7 @@ void DoryLoc::Node::dvlOdomCallback(const nav_msgs::Odometry::ConstPtr& odom) {
 void DoryLoc::Node::pixhawkOdomCallback(const nav_msgs::Odometry::ConstPtr& odom) {
     geometry_msgs::Point pos = odom->pose.pose.position;
 
-    // double noise = pixhawkDist(mt);
+    double noise = pixhawkDist(mt);
     double deltax = pos.x - lastOdom(0);
     double deltay = pos.y - lastOdom(1); 
     double deltaz = pos.z - lastOdom(2);
@@ -45,10 +44,10 @@ void DoryLoc::Node::pixhawkOdomCallback(const nav_msgs::Odometry::ConstPtr& odom
     tf2::Matrix3x3 m(tfquat);
     double roll, pitch, yaw;
     m.getRPY(roll, pitch, yaw);
-    // x += noise;
-    // y += noise;
-    // z += noise;
-    // yaw += noise;
+    deltax += noise;
+    deltay += noise;
+    deltaz += noise;
+    yaw += noise;
     double cosLastYaw = cos(lastOdom(3));
     double sinLastYaw = sin(lastOdom(3));
     std::vector<double> odomVec {
@@ -150,7 +149,7 @@ int main(int argc, char **argv) {
     std::random_device rd;
     std::mt19937 mt(rd());
     std::normal_distribution<double> pixhawkDist{0., 0.05};
-    std::normal_distribution<double> dvlDist{0., 0.05};
+    std::normal_distribution<double> dvlDist{0., 0.01};
     DoryLoc::Node node(mt, pixhawkDist, dvlDist);
 
     /*
