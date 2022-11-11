@@ -73,26 +73,11 @@ void DoryLoc::ParticleFilter::predict(std::vector<double> odom) {
     angCos.resize(num);
     angCos = pYaw.array().cos();
     VectorXd angSin = pYaw.array().sin();
-    Matrix<VectorXd, 2, 2> R;// {angCos, -angSin};//,{angSin, angCos}};
+    Matrix<VectorXd, 2, 2> R;
     R(0,0) = angCos;
     R(0,1) = -angSin;
     R(1,0) = angSin;
     R(1,1) = angCos;
-
-    // std::cout << "butt: " << R(0).size() << std::endl;
-
-    // std::vector<Eigen::Matrix<double,1,500>> R1;
-    // std::vector<Eigen::Matrix<double,1,500>> R2;
-    // std::vector<Eigen::Matrix<double,1,500>> R3;
-    // std::vector<Eigen::Matrix<double,1,500>> R4;
-    // for (int i = 0; i<500; i++) {
-    //     R1.push_back(cos(pYaw(i)));
-    // }
-
-    
-
-
-    // vector<Eigen::Matrix<
 
     Matrix<double, 3, 500> deltaWc; // was dynamic with insertion // = odomTranslation.dot(R);
     for(int i = 0; i < this->num; i++) {
@@ -101,9 +86,7 @@ void DoryLoc::ParticleFilter::predict(std::vector<double> odom) {
         deltaWc(2,i) = 0.;
     }
 
-    // std::cout << "xyz shape before predict (" << this->pxyz.rows() << "," << this->pxyz.cols() << ")" << std::endl;
     this->pxyz += deltaWc;
-    // std::cout << "xyz shape after predict (" << this->pxyz.rows() << "," << this->pxyz.cols() << ")" << std::endl;
 
     // update flag for resampling
     this->moving = true;
