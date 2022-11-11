@@ -5,6 +5,8 @@
 #include "particle_filter.hpp"
 #include <Eigen/Dense>
 #include <random>
+#include <tf2/LinearMath/Quaternion.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 
 // DVL A50 WL-21035-2 (assuming standard) long term sensor accuracy +-1.01%
 // https://yostlabs.com/product/3-space-nano/ - "sensor assist" AHRS on A50, specs on page 

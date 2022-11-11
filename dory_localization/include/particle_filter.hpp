@@ -4,9 +4,6 @@
 #include <cmath>
 #include <iostream>
 #include <string>
-#include <boost/uuid/uuid.hpp>            // uuid class
-#include <boost/uuid/uuid_generators.hpp> // generators
-#include <boost/uuid/uuid_io.hpp>         // streaming operators etc.
 
 using namespace Eigen;
 
@@ -33,8 +30,6 @@ namespace DoryLoc {
         double rngSigSq2;
         double valAng;
         double angSigSq2;
-
-        boost::uuids::uuid uuid;
 
         void setParticleAngles(VectorXd newAngles);
 

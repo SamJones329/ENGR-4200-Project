@@ -18,40 +18,14 @@ DoryLoc::ParticleFilter::ParticleFilter(int num, double measRngNoise, double mea
         , rngSigSq2(2. * pow(measRngNoise, 2))
         , valAng(1.0 / (measYawNoise * sqrt(2 * M_PI)))
         , angSigSq2(2. * pow(measYawNoise, 2))
-        , uuid(boost::uuids::random_generator()())
     {
-    // this->num = num;
-    // this->measRngNoise = measRngNoise;
-    // this->measYawNoise = measYawNoise;
-    // std::uniform_real_distribution<double> distribution(0,1./num);
-    // this->distribution = distribution;
-
-    // VectorXd wei(num);
     double startWei = 1. / num;
     for(int i = 0; i < num; i++) {
         pWei(i) = startWei;
     }
-    // this->pWei = wei;
-    // VectorXd ang(num);
-    // this->pYaw = ang;
-    // MatrixXd xyz = ArrayXXd::Zero(3,num);
-    // this->pxyz = xyz;
-    
-
-    // this->valRng = 1.0 / (measRngNoise * sqrt(2 * M_PI));
-    // this->rngSigSq2 = 2 * pow(measRngNoise, 2);
-    // this->valAng = 1.0 / (measYawNoise * sqrt(2 * M_PI));
-    // this->angSigSq2 = 2 * pow(measYawNoise, 2);
-    std::cout << uuid << std::endl;
-
-    std::cout << "Constructed Particle Filter with params: " << std::endl;
-    std::cout << "num: " << num << std::endl;
-    std::cout << "ParticleFilter" << uuid << "@" << this << " pxyz@" << &pxyz << std::endl;
-    std::cout << "xyz shape (" << pxyz.rows() << "," << pxyz.cols() << ") @ " << &pxyz << std::endl;
 }
 
 void DoryLoc::ParticleFilter::predict(std::vector<double> odom) {
-    std::cout << "angdiff: " << odom[3] << std::endl;
 
     if(odom[0] == 1 && odom[1] == 0 && odom[2] == 0 && odom[3] == 0) {
         this->moving = false;
