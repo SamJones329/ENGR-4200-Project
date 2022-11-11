@@ -1,6 +1,7 @@
 #include "ros/ros.h"
 #include "std_msgs/String.h"
 #include "nav_msgs/Odometry.h"
+#include "geometry_msgs/PoseStamped.h"
 #include "particle_filter.hpp"
 #include <Eigen/Dense>
 #include <random>
@@ -12,8 +13,10 @@ namespace DoryLoc {
         public:
 
         DoryLoc::ParticleFilter pf;
+        ros::NodeHandle n;
         ros::Subscriber dvlSub;
         ros::Subscriber pixhawkSub;
+        ros::Publisher meanParticlePub;
         Eigen::Vector4d lastOdom;
         std::mt19937 mt;
         std::normal_distribution<double> pixhawkDist;
@@ -25,7 +28,6 @@ namespace DoryLoc {
         void pixhawkOdomCallback(const nav_msgs::Odometry::ConstPtr& odom);
 
         Node(std::mt19937 gen, std::normal_distribution<double> pixhawkDistribution, std::normal_distribution<double> dvlDistribution);
-
 
         void loop();
     };

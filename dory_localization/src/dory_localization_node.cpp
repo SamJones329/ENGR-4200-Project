@@ -1,5 +1,6 @@
 #include "../include/dory_localization_node.hpp"
-
+#include <tf2/LinearMath/Quaternion.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 /*
 
 /home/active_stereo/catkin_ws/src/ENGR-4200-Project/dory_localization/src/dory_localization_node.cpp:47:82:   
@@ -15,54 +16,95 @@ error: no match for call to
 // https://yostlabs.com/product/3-space-nano/ - "sensor assist" AHRS on A50, specs on page 
 void DoryLoc::Node::dvlOdomCallback(const nav_msgs::Odometry::ConstPtr& odom) {
     geometry_msgs::Point pos = odom->pose.pose.position;
-    double noise = dvlDist(mt);
-    double x = pos.x, y = pos.y, z = pos.z, yaw = odom->pose.pose.orientation.z;
-    x += noise;
-    y += noise;
-    z += noise;
-    yaw += noise;
-    std::vector<double> odomVec {x, y, z, yaw};
-    this->pf.weight(odomVec);
+    std::cout << "got pt from dvl " << pos.x << ", " << pos.y << ", " << pos.z << std::endl;
+    // double noise = dvlDist(mt);
+    // double x = pos.x, y = pos.y, z = pos.z, yaw = odom->pose.pose.orientation.z;
+    // x += noise;
+    // y += noise;
+    // z += noise;
+    // yaw += noise;
+    // std::vector<double> odomVec {x, y, z, yaw};
+    // this->pf.weight(odomVec);
 }
 
 void DoryLoc::Node::pixhawkOdomCallback(const nav_msgs::Odometry::ConstPtr& odom) {
     geometry_msgs::Point pos = odom->pose.pose.position;
-    double noise = pixhawkDist(mt);
-    double x = pos.x, y = pos.y, z = pos.z, yaw = odom->pose.pose.orientation.z;
-    x += noise;
-    y += noise;
-    z += noise;
-    yaw += noise;
 
+    std::cout << "got pt from pixhawk " << pos.x << ", " << pos.y << ", " << pos.z << ", " << odom->pose.pose.orientation.z << std::endl;
+    // double noise = pixhawkDist(mt);
+    double x = pos.x;
+    double y = pos.y; 
+    double z = pos.z;
+    auto msgquat = odom->pose.pose.orientation; 
+    tf2::Quaternion tfquat;
+    tf2::convert(msgquat , tfquat);
+    tf2::Matrix3x3 m(tfquat);
+    double roll, pitch, yaw;
+    m.getRPY(roll, pitch, yaw);
+    // x += noise;
+    // y += noise;
+    // z += noise;
+    // yaw += noise;
+    std::cout << "lastYaw: " << lastOdom(3) << std::endl;
+    std::cout << "angdiffcb: " << yaw - lastOdom(3) << std::endl;
     std::vector<double> odomVec {
         x - lastOdom(0),
         y - lastOdom(1),
         z - lastOdom(2),
         yaw - lastOdom(3)
     };
+    std::cout << "got odomVec" << std::endl;
     this->pf.predict(odomVec);
+    std::cout << "finished prediction" << std::endl;
     this->lastOdom(0) = x;
     this->lastOdom(1) = y;
     this->lastOdom(2) = z;
     this->lastOdom(3) = yaw; 
 }
 
-DoryLoc::Node::Node(std::mt19937 gen, std::normal_distribution<double> pixhawkDistribution, std::normal_distribution<double> dvlDistribution) {
+DoryLoc::Node::Node(std::mt19937 gen, std::normal_distribution<double> pixhawkDistribution, std::normal_distribution<double> dvlDistribution)
+    : mt(gen)
+    , pixhawkDist(pixhawkDistribution)
+    , dvlDist(dvlDistribution)
+    , pf()
+    , n()
+{
     this->mt = gen;
     this->pixhawkDist = pixhawkDistribution;
     this->dvlDist = dvlDistribution;
 
-    ros::NodeHandle n;
+    std::cout << "pf in constructor ParticleFilter" << this->pf.uuid << "@" << &(this->pf) << std::endl;
 
     // dvlSub = n.subscribe<nav_msgs::Odometry>("DVL_ODOM", 10, dvlOdomCallback); 
     this->dvlSub = n.subscribe<nav_msgs::Odometry>("odom", 1000, &Node::dvlOdomCallback, this); 
 
     // pixhawkSub = n.subscribe<nav_msgs::Odometry>("ROV_ODOMETRY", 10, pixhawkOdomCallback);
     this->pixhawkSub = n.subscribe<nav_msgs::Odometry>("odom", 1000, &Node::pixhawkOdomCallback, this);
+
+    this->meanParticlePub = n.advertise<geometry_msgs::PoseStamped>("mean_particle", 100);
 }
 
 
 void DoryLoc::Node::loop() {
+    auto time = ros::Time::now();
+
+    // [x, y, z, yaw]
+    // std::cout << "pf in loop ParticleFilter" << this->pf.uuid << "@" << &(this->pf) << std::endl;
+    auto mean = this->pf.getMeanParticle();
+    // std::cout << "got mean" << std::endl;
+    geometry_msgs::PoseStamped meanMsg;
+    meanMsg.pose.position.x = mean.at(0);
+    meanMsg.pose.position.y = mean.at(1);
+    meanMsg.pose.position.z = mean.at(2);
+    // TODO - cvt from euler to quaternion
+    tf2::Quaternion meanQuat;
+    meanQuat.setEuler(mean.at(3), 0, 0);
+    meanMsg.pose.orientation = tf2::toMsg(meanQuat);
+    meanMsg.header.stamp = time;
+    meanMsg.header.frame_id = "odom";
+    // std::cout << "made msg" << std::endl;
+    meanParticlePub.publish(meanMsg);
+    // std::cout << "pub'd msg" << std::endl;
 
 }
 
@@ -88,9 +130,9 @@ int main(int argc, char **argv) {
 
     int count = 0;
     while (ros::ok()) {
+        node.loop();
         ros::spinOnce();
         loop_rate.sleep();
-        node.loop();
     }
     return 0;
 }
