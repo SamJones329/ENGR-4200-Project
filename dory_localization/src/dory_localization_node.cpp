@@ -98,9 +98,9 @@ void DoryLoc::Node::loop() {
     meanMsg.pose.position.z = mean.at(2);
     // TODO - cvt from euler to quaternion
     tf2::Quaternion meanQuat;
-    meanQuat.setEuler(mean.at(3), 0, 0);
+    meanQuat.setEuler(0, 0, mean.at(3));
     meanMsg.pose.orientation = tf2::toMsg(meanQuat);
-    meanMsg.header.stamp = time;
+    meanMsg.header.stamp = time; 
     meanMsg.header.frame_id = "odom";
     // std::cout << "made msg" << std::endl;
     meanParticlePub.publish(meanMsg);
