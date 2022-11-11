@@ -6,22 +6,28 @@ void DoryLoc::ParticleFilter::setParticleAngles(VectorXd newAngles) {
 }
 
 DoryLoc::ParticleFilter::ParticleFilter(int num, double measRngNoise, double measYawNoise, 
-        double xInit, double yInit,double yawInit) 
-        : num(num) 
-        , measRngNoise(measRngNoise)
-        , measYawNoise(measYawNoise)
-        , distribution(0, 1./num)
-        , pWei(num)
-        , pxyz(ArrayXXd::Zero(3,num))
-        , pYaw(num)
-        , valRng(1.0 / (measRngNoise * sqrt(2 * M_PI)))
-        , rngSigSq2(2. * pow(measRngNoise, 2))
-        , valAng(1.0 / (measYawNoise * sqrt(2 * M_PI)))
-        , angSigSq2(2. * pow(measYawNoise, 2))
-    {
+        double xInit, double yInit, double yawInit, double particleRange) 
+    : num(num) 
+    , measRngNoise(measRngNoise)
+    , measYawNoise(measYawNoise)
+    , distribution(0, 1./num)
+    , pWei(num)
+    , pxyz(ArrayXXd::Zero(3,num))
+    , pYaw(num)
+    , valRng(1.0 / (measRngNoise * sqrt(2 * M_PI)))
+    , rngSigSq2(2. * pow(measRngNoise, 2))
+    , valAng(1.0 / (measYawNoise * sqrt(2 * M_PI)))
+    , angSigSq2(2. * pow(measYawNoise, 2))
+{
+    std::uniform_real_distribution<double> posSpread(-particleRange, particleRange);
+    std::uniform_real_distribution<double> angSpread(-M_PI, M_PI);
     double startWei = 1. / num;
     for(int i = 0; i < num; i++) {
         pWei(i) = startWei;
+        for(int j = 0; j < 2; j++) {
+            pxyz(j,i) = posSpread(generator);
+        }
+        pYaw(i) = angSpread(generator);
     }
 }
 
@@ -153,4 +159,15 @@ std::vector<double> DoryLoc::ParticleFilter::getMeanParticle() {
 
     // return np.array([mean[0], mean[1], ang])
     return mean;
+}
+
+std::vector<std::vector<double>> DoryLoc::ParticleFilter::getParticles() {
+    std::vector<std::vector<double>> particles;
+    for(int i = 0; i < num; i++) {
+        std::vector<double> particle;
+        for(int j = 0; j < 3; j++) particle.push_back(pxyz(j,i));
+        particle.push_back(pYaw(i));
+        particles.push_back(particle);
+    }
+    return particles;
 }

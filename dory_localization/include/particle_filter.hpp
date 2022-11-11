@@ -33,13 +33,13 @@ namespace DoryLoc {
 
         void setParticleAngles(VectorXd newAngles);
 
-        ParticleFilter() : ParticleFilter(500, 0.0101, 0.0101, 0., 0., 0.) {
+        ParticleFilter() : ParticleFilter(500, 0.0101, 0.0101, 0., 0., 0., 1.5) {
             // DVL A50 WL-21035-2 TODO - find out if have standard or performance version
             // standard has long term sensor (velocity) accuracy of +-1.01%, perf has +-0.1%
         }
 
         ParticleFilter(int num, double measRngNoise, double measYawNoise, 
-                double xInit, double yInit,double yawInit);
+                double xInit, double yInit, double yawInit, double particleRange);
 
         /**
          * Moves particles with the given odometry.
@@ -59,5 +59,12 @@ namespace DoryLoc {
          * @return length 4 vector of the form [x, y, z, yaw]
         */
         std::vector<double> getMeanParticle();
+
+        /**
+         * Get all the particles of the filter.
+         * @return A vector with all the particles of the particle filter
+         * where each vector element is a length 4 array of the form [x, y, z, yaw]
+        */
+        std::vector<std::vector<double>> getParticles();
     };
 }

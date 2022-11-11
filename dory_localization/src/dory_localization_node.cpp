@@ -76,6 +76,7 @@ DoryLoc::Node::Node(std::mt19937 gen, std::normal_distribution<double> pixhawkDi
     this->pixhawkSub = n.subscribe<nav_msgs::Odometry>("odom", 1000, &Node::pixhawkOdomCallback, this);
 
     this->meanParticlePub = n.advertise<geometry_msgs::PoseStamped>("mean_particle", 100);
+    this->allParticlePub = n.advertise<geometry_msgs::PoseArray>("particles", 100);
 }
 
 
@@ -88,13 +89,27 @@ void DoryLoc::Node::loop() {
     meanMsg.pose.position.x = mean.at(0);
     meanMsg.pose.position.y = mean.at(1);
     meanMsg.pose.position.z = mean.at(2);
-    tf2::Quaternion meanQuat;
-    meanQuat.setEuler(0, 0, mean.at(3));
-    meanMsg.pose.orientation = tf2::toMsg(meanQuat);
+    tf2::Quaternion q;
+    q.setEuler(0, 0, mean.at(3));
+    meanMsg.pose.orientation = tf2::toMsg(q);
     meanMsg.header.stamp = time; 
     meanMsg.header.frame_id = "odom";
     meanParticlePub.publish(meanMsg);
 
+    auto particles = pf.getParticles();
+    geometry_msgs::PoseArray particlesMsg;
+    particlesMsg.header.stamp = time;
+    particlesMsg.header.frame_id = "odom";
+    for(auto particle : particles) {
+        geometry_msgs::Pose p;
+        p.position.x = particle[0];
+        p.position.y = particle[1];
+        p.position.z = particle[2];
+        q.setEuler(0, 0, particle.at(3));
+        p.orientation = tf2::toMsg(q);
+        particlesMsg.poses.push_back(p);
+    }
+    allParticlePub.publish(particlesMsg);
 }
 
 int main(int argc, char **argv) {

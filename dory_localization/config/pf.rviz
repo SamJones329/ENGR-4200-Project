@@ -9,6 +9,7 @@ Panels:
         - /Odometry1
         - /Map1
         - /Pose1
+        - /PoseArray1
       Splitter Ratio: 0.5
     Tree Height: 638
   - Class: rviz/Selection
@@ -114,6 +115,22 @@ Visualization Manager:
       Topic: /mean_particle
       Unreliable: false
       Value: true
+    - Alpha: 1
+      Arrow Length: 0.30000001192092896
+      Axes Length: 0.30000001192092896
+      Axes Radius: 0.009999999776482582
+      Class: rviz/PoseArray
+      Color: 25; 25; 255
+      Enabled: true
+      Head Length: 0.07000000029802322
+      Head Radius: 0.029999999329447746
+      Name: PoseArray
+      Shaft Length: 0.23000000417232513
+      Shaft Radius: 0.009999999776482582
+      Shape: Arrow (Flat)
+      Topic: /particles
+      Unreliable: false
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -142,16 +159,16 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 20.39106559753418
+      Distance: 11.846651077270508
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 0.46208655834198
-        Y: 0.5121898651123047
-        Z: -0.6889175176620483
+        X: 2.239168167114258
+        Y: -2.9818115234375
+        Z: 0.19995734095573425
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
