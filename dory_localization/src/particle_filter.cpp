@@ -167,6 +167,7 @@ std::vector<std::vector<double>> DoryLoc::ParticleFilter::getParticles() {
         std::vector<double> particle;
         for(int j = 0; j < 3; j++) particle.push_back(pxyz(j,i));
         particle.push_back(pYaw(i));
+        particle.push_back(pWei(i));
         particles.push_back(particle);
     }
     return particles;

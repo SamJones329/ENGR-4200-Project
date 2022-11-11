@@ -3,6 +3,8 @@
 #include "nav_msgs/Odometry.h"
 #include "geometry_msgs/PoseStamped.h"
 #include "geometry_msgs/PoseArray.h"
+#include "visualization_msgs/Marker.h"
+#include "visualization_msgs/MarkerArray.h"
 #include "particle_filter.hpp"
 #include <Eigen/Dense>
 #include <random>
@@ -21,6 +23,7 @@ namespace DoryLoc {
         ros::Subscriber pixhawkSub;
         ros::Publisher meanParticlePub;
         ros::Publisher allParticlePub;
+        ros::Publisher allParticleMarkerPub;
         Eigen::Vector4d lastOdom;
         std::mt19937 mt;
         std::normal_distribution<double> pixhawkDist;

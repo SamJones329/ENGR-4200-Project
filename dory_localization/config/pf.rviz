@@ -6,10 +6,7 @@ Panels:
       Expanded:
         - /Global Options1
         - /Status1
-        - /Odometry1
-        - /Map1
-        - /Pose1
-        - /PoseArray1
+        - /MarkerArray1
       Splitter Ratio: 0.5
     Tree Height: 638
   - Class: rviz/Selection
@@ -131,6 +128,14 @@ Visualization Manager:
       Topic: /particles
       Unreliable: false
       Value: true
+    - Class: rviz/MarkerArray
+      Enabled: true
+      Marker Topic: /particle_markers
+      Name: MarkerArray
+      Namespaces:
+        {}
+      Queue Size: 100
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
@@ -159,16 +164,16 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 11.846651077270508
+      Distance: 20.87784767150879
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 2.239168167114258
-        Y: -2.9818115234375
-        Z: 0.19995734095573425
+        X: 0.34882622957229614
+        Y: -1.3468036651611328
+        Z: -0.2131732553243637
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false

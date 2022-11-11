@@ -63,7 +63,7 @@ namespace DoryLoc {
         /**
          * Get all the particles of the filter.
          * @return A vector with all the particles of the particle filter
-         * where each vector element is a length 4 array of the form [x, y, z, yaw]
+         * where each vector element is a length 4 array of the form [x, y, z, yaw, weight]
         */
         std::vector<std::vector<double>> getParticles();
     };

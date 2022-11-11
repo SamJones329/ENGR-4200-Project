@@ -17,13 +17,19 @@ void DoryLoc::Node::dvlOdomCallback(const nav_msgs::Odometry::ConstPtr& odom) {
     geometry_msgs::Point pos = odom->pose.pose.position;
     std::cout << "got pt from dvl " << pos.x << ", " << pos.y << ", " << pos.z << std::endl;
     // double noise = dvlDist(mt);
-    // double x = pos.x, y = pos.y, z = pos.z, yaw = odom->pose.pose.orientation.z;
+    double x = pos.x, y = pos.y, z = pos.z; 
+    auto msgquat = odom->pose.pose.orientation; 
+    tf2::Quaternion tfquat;
+    tf2::convert(msgquat , tfquat);
+    tf2::Matrix3x3 m(tfquat);
+    double roll, pitch, yaw;
+    m.getRPY(roll, pitch, yaw);
     // x += noise;
     // y += noise;
     // z += noise;
     // yaw += noise;
-    // std::vector<double> odomVec {x, y, z, yaw};
-    // this->pf.weight(odomVec);
+    std::vector<double> odomVec {x, y, z, yaw};
+    this->pf.weight(odomVec);
 }
 
 void DoryLoc::Node::pixhawkOdomCallback(const nav_msgs::Odometry::ConstPtr& odom) {
@@ -77,6 +83,7 @@ DoryLoc::Node::Node(std::mt19937 gen, std::normal_distribution<double> pixhawkDi
 
     this->meanParticlePub = n.advertise<geometry_msgs::PoseStamped>("mean_particle", 100);
     this->allParticlePub = n.advertise<geometry_msgs::PoseArray>("particles", 100);
+    this->allParticleMarkerPub = n.advertise<visualization_msgs::MarkerArray>("particle_markers", 100);
 }
 
 
@@ -98,8 +105,10 @@ void DoryLoc::Node::loop() {
 
     auto particles = pf.getParticles();
     geometry_msgs::PoseArray particlesMsg;
+    visualization_msgs::MarkerArray particleMarkersMsg;
     particlesMsg.header.stamp = time;
     particlesMsg.header.frame_id = "odom";
+    int idx = 0;
     for(auto particle : particles) {
         geometry_msgs::Pose p;
         p.position.x = particle[0];
@@ -108,8 +117,26 @@ void DoryLoc::Node::loop() {
         q.setEuler(0, 0, particle.at(3));
         p.orientation = tf2::toMsg(q);
         particlesMsg.poses.push_back(p);
+        visualization_msgs::Marker m;
+        m.pose = p;
+        m.header.frame_id = "odom";
+        m.header.stamp = time;
+        m.id = idx++;
+        m.ns = "weights";
+        m.type = visualization_msgs::Marker::SPHERE;
+        m.action = visualization_msgs::Marker::ADD;
+        m.color.a = 0.5;
+        m.color.r = 0.0;
+        m.color.g = 1.0;
+        m.color.b = 1.0;
+        double scale = 0.01 + 0.055 * particle[4];
+        m.scale.x = scale;
+        m.scale.y = scale;
+        m.scale.z = 0.05;
+        particleMarkersMsg.markers.push_back(m);
     }
     allParticlePub.publish(particlesMsg);
+    allParticleMarkerPub.publish(particleMarkersMsg);
 }
 
 int main(int argc, char **argv) {
