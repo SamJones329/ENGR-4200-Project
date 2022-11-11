@@ -51,7 +51,7 @@ namespace DoryLoc {
 
         void weight(std::vector<double> odom);
 
-        void resample(double* odom);
+        void resample();
 
         /**
          * Obtain the mean particle of the particle filter, or the state belief.

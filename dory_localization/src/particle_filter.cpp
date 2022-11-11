@@ -89,10 +89,11 @@ void DoryLoc::ParticleFilter::weight(std::vector<double> odom) {
     this->pWei = weights;
 }
 
-void DoryLoc::ParticleFilter::resample(double* odom) {
+void DoryLoc::ParticleFilter::resample() {
     VectorXd X(this->num);
 
-    VectorXd Y(this->num);;
+    VectorXd Y(this->num);
+    VectorXd Z(num);
 
     VectorXd Th(this->num);
 
@@ -113,8 +114,13 @@ void DoryLoc::ParticleFilter::resample(double* odom) {
         }
         X(m) = this->pxyz(0,i);
         Y(m) = this->pxyz(1,i);
-        Th(m) = this->pYaw(0,i);
+        Z(m) = this->pxyz(2,i);
+        Th(m) = this->pYaw(i);
     }
+    pxyz.row(0) = X;
+    pxyz.row(1) = Y;
+    pxyz.row(2) = Z;
+    pYaw = Th;
 }
 
 std::vector<double> DoryLoc::ParticleFilter::getMeanParticle() {

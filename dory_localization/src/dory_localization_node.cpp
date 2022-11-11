@@ -88,6 +88,11 @@ DoryLoc::Node::Node(std::mt19937 gen, std::normal_distribution<double> pixhawkDi
 
 
 void DoryLoc::Node::loop() {
+
+    if(pf.moving) {
+        pf.resample();
+    }
+
     auto time = ros::Time::now();
 
     // [x, y, z, yaw]
@@ -134,9 +139,7 @@ void DoryLoc::Node::loop() {
         m.scale.y = scale;
         m.scale.z = 0.05;
         particleMarkersMsg.markers.push_back(m);
-        std::cout << 'w' << particle[4];
     }
-    std::cout << std::endl;
     allParticlePub.publish(particlesMsg);
     allParticleMarkerPub.publish(particleMarkersMsg);
 }
