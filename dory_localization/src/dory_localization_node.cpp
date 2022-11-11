@@ -30,7 +30,6 @@ void DoryLoc::Node::dvlOdomCallback(const nav_msgs::Odometry::ConstPtr& odom) {
 void DoryLoc::Node::pixhawkOdomCallback(const nav_msgs::Odometry::ConstPtr& odom) {
     geometry_msgs::Point pos = odom->pose.pose.position;
 
-    std::cout << "got pt from pixhawk " << pos.x << ", " << pos.y << ", " << pos.z << ", " << odom->pose.pose.orientation.z << std::endl;
     // double noise = pixhawkDist(mt);
     double deltax = pos.x - lastOdom(0);
     double deltay = pos.y - lastOdom(1); 
@@ -45,8 +44,6 @@ void DoryLoc::Node::pixhawkOdomCallback(const nav_msgs::Odometry::ConstPtr& odom
     // y += noise;
     // z += noise;
     // yaw += noise;
-    std::cout << "lastYaw: " << lastOdom(3) << std::endl;
-    std::cout << "angdiffcb: " << yaw - lastOdom(3) << std::endl;
     double cosLastYaw = cos(lastOdom(3));
     double sinLastYaw = sin(lastOdom(3));
     std::vector<double> odomVec {
@@ -55,9 +52,7 @@ void DoryLoc::Node::pixhawkOdomCallback(const nav_msgs::Odometry::ConstPtr& odom
         0.,
         yaw - lastOdom(3)
     };
-    std::cout << "got odomVec" << std::endl;
     this->pf.predict(odomVec);
-    std::cout << "finished prediction" << std::endl;
     this->lastOdom(0) = pos.x;
     this->lastOdom(1) = pos.y;
     this->lastOdom(2) = pos.z;
@@ -75,8 +70,6 @@ DoryLoc::Node::Node(std::mt19937 gen, std::normal_distribution<double> pixhawkDi
     this->pixhawkDist = pixhawkDistribution;
     this->dvlDist = dvlDistribution;
 
-    std::cout << "pf in constructor ParticleFilter" << this->pf.uuid << "@" << &(this->pf) << std::endl;
-
     // dvlSub = n.subscribe<nav_msgs::Odometry>("DVL_ODOM", 10, dvlOdomCallback); 
     this->dvlSub = n.subscribe<nav_msgs::Odometry>("odom", 1000, &Node::dvlOdomCallback, this); 
 
@@ -91,22 +84,17 @@ void DoryLoc::Node::loop() {
     auto time = ros::Time::now();
 
     // [x, y, z, yaw]
-    // std::cout << "pf in loop ParticleFilter" << this->pf.uuid << "@" << &(this->pf) << std::endl;
     auto mean = this->pf.getMeanParticle();
-    // std::cout << "got mean" << std::endl;
     geometry_msgs::PoseStamped meanMsg;
     meanMsg.pose.position.x = mean.at(0);
     meanMsg.pose.position.y = mean.at(1);
     meanMsg.pose.position.z = mean.at(2);
-    // TODO - cvt from euler to quaternion
     tf2::Quaternion meanQuat;
     meanQuat.setEuler(0, 0, mean.at(3));
     meanMsg.pose.orientation = tf2::toMsg(meanQuat);
     meanMsg.header.stamp = time; 
     meanMsg.header.frame_id = "odom";
-    // std::cout << "made msg" << std::endl;
     meanParticlePub.publish(meanMsg);
-    // std::cout << "pub'd msg" << std::endl;
 
 }
 
