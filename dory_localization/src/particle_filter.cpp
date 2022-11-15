@@ -39,12 +39,16 @@ void DoryLoc::ParticleFilter::predict(std::vector<double> uk) {
     }
 
     VectorXd odomAngVec(num);
+    
+
     for(int i = 0; i < this->num; i++) {
         odomAngVec(i) = uk[3];
     }
     // setParticleAngles(this->pYaw + odomAngVec);
     pYaw += odomAngVec;
     Vector3d odomTranslation {uk[0], uk[1], uk[2]};
+
+    
 
 
     // try resizing to vector of matrices so can use vector iterator
@@ -58,12 +62,14 @@ void DoryLoc::ParticleFilter::predict(std::vector<double> uk) {
     R(0,1) = -angSin;
     R(1,0) = angSin;
     R(1,1) = angCos;
+    
+ 
 
     Matrix<double, 3, 500> deltaWc; // was dynamic with insertion // = odomTranslation.dot(R);
     for(int i = 0; i < this->num; i++) {
         deltaWc(0,i) = R(0,0)(i) * odomTranslation(0) + R(0,1)(i) * odomTranslation(1);
         deltaWc(1,i) = R(1,0)(i) * odomTranslation(0) + R(1,1)(i) * odomTranslation(1);
-        deltaWc(2,i) = 0.;
+        deltaWc(2,i) = odomTranslation(2);
     }
 
     this->pxyz += deltaWc;
