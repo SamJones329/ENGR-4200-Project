@@ -1,14 +1,15 @@
 #include "../include/particle_filter.hpp"
 
 void DoryLoc::ParticleFilter::setParticleAngles(VectorXd newAngles) {
-    this->pYaw = newAngles;
     for(int i = 0; i < num; i++) {
-        while(pYaw(i) > M_PI) {
-            pYaw(i) -= M_PI_X_2;
+        double yaw = newAngles(i);
+        while(yaw > M_PI) {
+            yaw -= M_PI_X_2;
         }
-        while(pYaw(i) < M_PI) {
-            pYaw(i) -= M_PI_X_2;
+        while(yaw <= -M_PI) {
+            yaw += M_PI_X_2;
         }
+        pYaw(i) = yaw;
     }
     //TODO - wrap angles
 }
@@ -52,8 +53,8 @@ void DoryLoc::ParticleFilter::predict(std::vector<double> uk) {
     for(int i = 0; i < this->num; i++) {
         odomAngVec(i) = uk[3];
     }
-    // setParticleAngles(this->pYaw + odomAngVec);
-    pYaw += odomAngVec;
+    setParticleAngles(this->pYaw + odomAngVec);
+    // pYaw += odomAngVec;
     Vector3d odomTranslation {uk[0], uk[1], uk[2]};
 
     // try resizing to vector of matrices so can use vector iterator
