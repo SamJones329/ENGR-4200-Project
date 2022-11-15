@@ -31,20 +31,20 @@ DoryLoc::ParticleFilter::ParticleFilter(int num, double measRngNoise, double mea
     }
 }
 
-void DoryLoc::ParticleFilter::predict(std::vector<double> odom) {
+void DoryLoc::ParticleFilter::predict(std::vector<double> uk) {
 
-    if(odom[0] == 1 && odom[1] == 0 && odom[2] == 0 && odom[3] == 0) {
+    if(uk[0] == 1 && uk[1] == 0 && uk[2] == 0 && uk[3] == 0) {
         this->moving = false;
         return;
     }
 
     VectorXd odomAngVec(num);
     for(int i = 0; i < this->num; i++) {
-        odomAngVec(i) = odom[3];
+        odomAngVec(i) = uk[3];
     }
     // setParticleAngles(this->pYaw + odomAngVec);
     pYaw += odomAngVec;
-    Vector3d odomTranslation {odom[0], odom[1], odom[2]};
+    Vector3d odomTranslation {uk[0], uk[1], uk[2]};
 
 
     // try resizing to vector of matrices so can use vector iterator
@@ -70,6 +70,11 @@ void DoryLoc::ParticleFilter::predict(std::vector<double> odom) {
 
     // update flag for resampling
     this->moving = true;
+}
+
+void DoryLoc::ParticleFilter::update(std::vector<double> zk) {
+    this->weight(zk);
+    this->resample();
 }
 
 void DoryLoc::ParticleFilter::weight(std::vector<double> odom) {
@@ -112,7 +117,7 @@ void DoryLoc::ParticleFilter::resample() {
             if(i >= this->num){
                 i--;
             }
-            c+= this->pWei(i);
+            c += this->pWei(i);
         }
         X(m) = this->pxyz(0,i) + resamplingNoise(generator);
         Y(m) = this->pxyz(1,i) + resamplingNoise(generator);
@@ -125,7 +130,7 @@ void DoryLoc::ParticleFilter::resample() {
     pYaw = Th;
 }
 
-std::vector<double> DoryLoc::ParticleFilter::getMeanParticle() {
+std::vector<double> DoryLoc::ParticleFilter::getBelief() {
     // Weighted mean
     // weig = np.vstack((self.p_wei, self.p_wei))
     // mean = np.sum(self.p_xy * weig, axis=1) / np.sum(self.p_wei)

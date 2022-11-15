@@ -4,11 +4,12 @@
 #include <cmath>
 #include <iostream>
 #include <string>
+#include "./localizer.hpp"
 
 using namespace Eigen;
 
 namespace DoryLoc {
-    class ParticleFilter {
+    class ParticleFilter { // : public Localizer {
     public:
         int num;
         bool moving;
@@ -47,7 +48,9 @@ namespace DoryLoc {
          * odom - incremental odometry [delta_x, delta_y, delta_yaw] in the 
          * vehicle frame
         */
-        void predict(std::vector<double> odom);
+        void predict(std::vector<double> uk);
+
+        void update(std::vector<double> zk);
 
         void weight(std::vector<double> odom);
 
@@ -58,7 +61,7 @@ namespace DoryLoc {
          * 
          * @return length 4 vector of the form [x, y, z, yaw]
         */
-        std::vector<double> getMeanParticle();
+        std::vector<double> getBelief(); // override;
 
         /**
          * Get all the particles of the filter.

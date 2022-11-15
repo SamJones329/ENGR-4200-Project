@@ -1,0 +1,33 @@
+<launch>
+
+    <!-- Modes indicate how the node will obtain data, the default is test, 
+    which uses odometry data from a bagfile and manually adds noise -->
+    <arg name="mode" default="test" /> 
+
+    <!-- This selects the algorithm will the localization node will run, 
+    currently only particle_filter is available -->
+    <arg name="algo" default="particle_filter" />
+
+    <group if="$(eval mode == 'test')">
+        <!-- Source data -->
+        <include file="$(find dory_localization)/launch/bagfile_testing.launch">
+        </include>
+    </group>
+
+    <node
+        pkg="dory_localization"
+        type="node"
+        name="dory_localization_node"
+        output="screen"
+    >
+        <param name="algo" type="string" value="$(arg algo)" />
+    </node>
+    <!-- RViz -->
+    <node 
+        pkg="rviz" 
+        type="rviz" 
+        name="rviz" 
+        args="-d $(find dory_localization)/config/pf.rviz" 
+        output="screen"/>
+  />
+</launch>

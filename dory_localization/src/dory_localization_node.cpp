@@ -28,7 +28,7 @@ void DoryLoc::Node::dvlOdomCallback(const nav_msgs::Odometry::ConstPtr& odom) {
     z += noise;
     yaw += noise;
     std::vector<double> odomVec {x, y, z, yaw};
-    this->pf.weight(odomVec);
+    this->filter->update(odomVec);
 }
 
 void DoryLoc::Node::pixhawkOdomCallback(const nav_msgs::Odometry::ConstPtr& odom) {
@@ -56,46 +56,100 @@ void DoryLoc::Node::pixhawkOdomCallback(const nav_msgs::Odometry::ConstPtr& odom
         0.,
         yaw - lastOdom(3)
     };
-    this->pf.predict(odomVec);
+    this->filter->predict(odomVec);
     this->lastOdom(0) = pos.x;
     this->lastOdom(1) = pos.y;
     this->lastOdom(2) = pos.z;
     this->lastOdom(3) = yaw; 
 }
 
-DoryLoc::Node::Node(std::mt19937 gen, std::normal_distribution<double> pixhawkDistribution, std::normal_distribution<double> dvlDistribution)
-    : mt(gen)
+void DoryLoc::Node::testingCallback(const nav_msgs::Odometry::ConstPtr& odom) {
+    // simulate pixhawk callback
+    geometry_msgs::Point pos = odom->pose.pose.position;
+
+    double noise = pixhawkDist(mt);
+    double deltax = pos.x - lastOdom(0);
+    double deltay = pos.y - lastOdom(1); 
+    double deltaz = pos.z - lastOdom(2);
+    auto msgquat = odom->pose.pose.orientation; 
+    tf2::Quaternion tfquat;
+    tf2::convert(msgquat , tfquat);
+    tf2::Matrix3x3 m(tfquat);
+    double roll, pitch, yaw;
+    m.getRPY(roll, pitch, yaw);
+    deltax += noise;
+    deltay += noise;
+    deltaz += noise;
+    yaw += noise;
+    double cosLastYaw = cos(lastOdom(3));
+    double sinLastYaw = sin(lastOdom(3));
+    std::vector<double> odomVec {
+        deltax * cosLastYaw + deltay * sinLastYaw,
+        deltay * cosLastYaw - deltax * sinLastYaw,
+        0.,
+        yaw - lastOdom(3)
+    };
+    this->filter->predict(odomVec);
+    this->lastOdom(0) = pos.x;
+    this->lastOdom(1) = pos.y;
+    this->lastOdom(2) = pos.z;
+    this->lastOdom(3) = yaw; 
+
+
+    // simulate dvl callback
+    pos = odom->pose.pose.position;
+    noise = dvlDist(mt);
+    double x = pos.x, y = pos.y, z = pos.z; 
+    msgquat = odom->pose.pose.orientation; 
+    tf2::convert(msgquat , tfquat);
+    m = tf2::Matrix3x3(tfquat);
+    m.getRPY(roll, pitch, yaw);
+    x += noise;
+    y += noise;
+    z += noise;
+    yaw += noise;
+    odomVec = std::vector<double> {x, y, z, yaw};
+    this->filter->update(odomVec);
+}
+
+DoryLoc::Node::Node(ParticleFilter *filter, std::normal_distribution<double> pixhawkDistribution, std::normal_distribution<double> dvlDistribution)
+    : nh()
+    , rd()
+    , mt(rd())
     , pixhawkDist(pixhawkDistribution)
     , dvlDist(dvlDistribution)
-    , pf()
-    , n()
 {
-    this->mt = gen;
+    this->filter = filter;
+    // std::string algo;
+    // n.getParam("algo", algo);
+    // if(!algo.compare("particle_filter")) {
+    //     filter = &(DoryLoc::ParticleFilter());
+    // } else {
+    //     ROS_ERROR("No localization algorithm selected, exiting...");
+    //     exit(0);
+    // }
+
     this->pixhawkDist = pixhawkDistribution;
     this->dvlDist = dvlDistribution;
 
     // dvlSub = n.subscribe<nav_msgs::Odometry>("DVL_ODOM", 10, dvlOdomCallback); 
-    this->dvlSub = n.subscribe<nav_msgs::Odometry>("odom", 1000, &Node::dvlOdomCallback, this); 
+    this->testSub = nh.subscribe<nav_msgs::Odometry>("odom", 1000, &Node::testingCallback, this); 
 
     // pixhawkSub = n.subscribe<nav_msgs::Odometry>("ROV_ODOMETRY", 10, pixhawkOdomCallback);
-    this->pixhawkSub = n.subscribe<nav_msgs::Odometry>("odom", 1000, &Node::pixhawkOdomCallback, this);
 
-    this->meanParticlePub = n.advertise<geometry_msgs::PoseStamped>("mean_particle", 100);
-    this->allParticlePub = n.advertise<geometry_msgs::PoseArray>("particles", 100);
-    this->allParticleMarkerPub = n.advertise<visualization_msgs::MarkerArray>("particle_markers", 100);
+    this->meanParticlePub = nh.advertise<geometry_msgs::PoseStamped>("mean_particle", 100);
+    this->allParticlePub = nh.advertise<geometry_msgs::PoseArray>("particles", 100);
+    this->allParticleMarkerPub = nh.advertise<visualization_msgs::MarkerArray>("particle_markers", 100);
 }
 
 
 void DoryLoc::Node::loop() {
-
-    if(pf.moving) {
-        pf.resample();
-    }
+    std::cout << "loop" << std::endl;
 
     auto time = ros::Time::now();
 
     // [x, y, z, yaw]
-    auto mean = this->pf.getMeanParticle();
+    auto mean = this->filter->getBelief();
     geometry_msgs::PoseStamped meanMsg;
     meanMsg.pose.position.x = mean.at(0);
     meanMsg.pose.position.y = mean.at(1);
@@ -107,7 +161,7 @@ void DoryLoc::Node::loop() {
     meanMsg.header.frame_id = "odom";
     meanParticlePub.publish(meanMsg);
 
-    auto particles = pf.getParticles();
+    auto particles = filter->getParticles();
     geometry_msgs::PoseArray particlesMsg;
     visualization_msgs::MarkerArray particleMarkersMsg;
     particlesMsg.header.stamp = time;
@@ -146,11 +200,24 @@ void DoryLoc::Node::loop() {
 int main(int argc, char **argv) {
 
     ros::init(argc, argv, "dory_localization");
-    std::random_device rd;
-    std::mt19937 mt(rd());
+    ros::NodeHandle n("~");
     std::normal_distribution<double> pixhawkDist{0., 0.05};
     std::normal_distribution<double> dvlDist{0., 0.01};
-    DoryLoc::Node node(mt, pixhawkDist, dvlDist);
+
+    // std::string algo;
+    // DoryLoc::Localizer* filter;
+    // n.getParam("algo", algo);
+    // if(!algo.compare("particle_filter")) {
+    //     DoryLoc::Localizer f = DoryLoc::ParticleFilter();
+    //     filter = &f;
+    // } else {
+    //     ROS_ERROR("No localization algorithm selected, exiting...");
+    //     exit(0);
+    // }
+    auto filter = DoryLoc::ParticleFilter();
+    
+    DoryLoc::Node node(&filter, pixhawkDist, dvlDist);
+    // auto testSub = n.subscribe<nav_msgs::Odometry>("odom", 1000, &DoryLoc::Node::testingCallback, &node); 
 
     /*
         DVL_ODOM nav_msgs.Odometry {position: {x, y, z}, oritatation: {x (roll), y (pitch), z (yaw)} - Fused integration velocity and IMU
@@ -159,6 +226,8 @@ int main(int argc, char **argv) {
         DVL_DOPPLER navg_msgs.Odometry {xvel, yvel, zvel} - Raw Velocities
         don't know raw depth message and raw IMU from DVL
         altimeter ping1d sensor on bluerobotics website
+
+        figure out if using the MavLink messages directly
     */
 
     ros::Rate loop_rate(10);
