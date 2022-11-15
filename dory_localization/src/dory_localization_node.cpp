@@ -144,8 +144,6 @@ DoryLoc::Node::Node(ParticleFilter *filter, std::normal_distribution<double> pix
 
 
 void DoryLoc::Node::loop() {
-    std::cout << "loop" << std::endl;
-
     auto time = ros::Time::now();
 
     // [x, y, z, yaw]

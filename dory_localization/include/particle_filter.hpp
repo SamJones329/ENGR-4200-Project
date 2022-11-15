@@ -6,6 +6,8 @@
 #include <string>
 #include "./localizer.hpp"
 
+#define M_PI_X_2 6.283185307179586232
+
 using namespace Eigen;
 
 namespace DoryLoc {

@@ -2,6 +2,14 @@
 
 void DoryLoc::ParticleFilter::setParticleAngles(VectorXd newAngles) {
     this->pYaw = newAngles;
+    for(int i = 0; i < num; i++) {
+        while(pYaw(i) > M_PI) {
+            pYaw(i) -= M_PI_X_2;
+        }
+        while(pYaw(i) < M_PI) {
+            pYaw(i) -= M_PI_X_2;
+        }
+    }
     //TODO - wrap angles
 }
 
@@ -48,9 +56,6 @@ void DoryLoc::ParticleFilter::predict(std::vector<double> uk) {
     pYaw += odomAngVec;
     Vector3d odomTranslation {uk[0], uk[1], uk[2]};
 
-    
-
-
     // try resizing to vector of matrices so can use vector iterator
     
     VectorXd angCos;
@@ -62,8 +67,6 @@ void DoryLoc::ParticleFilter::predict(std::vector<double> uk) {
     R(0,1) = -angSin;
     R(1,0) = angSin;
     R(1,1) = angCos;
-    
- 
 
     Matrix<double, 3, 500> deltaWc; // was dynamic with insertion // = odomTranslation.dot(R);
     for(int i = 0; i < this->num; i++) {
@@ -140,41 +143,24 @@ std::vector<double> DoryLoc::ParticleFilter::getBelief() {
     // Weighted mean
     // weig = np.vstack((self.p_wei, self.p_wei))
     // mean = np.sum(self.p_xy * weig, axis=1) / np.sum(self.p_wei)
-    // // weights should sum to 1
-    // std::cout << "Calculating mean particle..." << std::endl;
-    // std::cout << "Dims: 0-x, 1-y, 2-z, 3-yaw, ParticleFilter" << uuid << "@" << this << " pxyz@" << &pxyz << std::endl;
-    // std::cout << "pWei shape (" << pWei.rows() << "," << pWei.cols() << ")" << std::endl; 
+    // weights should sum to 1
     std::vector<double> mean;
     for(int i = 0; i < 3; i++) {
-        // std::cout << "xyz has " << pxyz.rows() << " rows and " << pxyz.cols() << " cols " << std::endl;
-        // std::cout << "Getting mean for dim " << i << std::endl;
         VectorXd dim = this->pxyz.row(i);
-        // std::cout << "pxyz row " << " shape (" << dim.rows() << "," << dim.cols() << ")" << std::endl;
-        // std::cout << "Weighting each particle" << std::endl;
         dim = dim.cwiseProduct(this->pWei);
-        // std::cout << "Summing" << std::endl;
         double dimSum = dim.sum();
-        // std::cout << "Pushing onto vector" << std::endl;
         mean.push_back(dim.sum());
     }
-    // std::cout << "Got xyz ";
-    // for(auto i: mean) std::cout << i << ' ';
-    // std::cout << std::endl;
 
     // ang = np.arctan2( np.sum(self.p_wei * np.sin(self.p_ang)) / np.sum(self.p_wei),
                         // np.sum(self.p_wei * np.cos(self.p_ang)) / np.sum(self.p_wei) )
     VectorXd angCos = this->pYaw.array().cos();
     VectorXd angSin = this->pYaw.array().sin();
-    // std::cout << "angCos shape (" << angCos.rows() << "," << angCos.cols() << ")" << std::endl;
     double ang = std::atan2(
         (angSin.cwiseProduct(this->pWei)).sum(), 
         (angCos.cwiseProduct(this->pWei)).sum()
     );
     mean.push_back(ang);
-
-    // std::cout << "Got mean particle ";
-    // for(auto i: mean) std::cout << i << ' ';
-    // std::cout << std::endl;
 
     // return np.array([mean[0], mean[1], ang])
     return mean;
