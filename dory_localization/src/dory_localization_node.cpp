@@ -1,16 +1,5 @@
 #include "../include/dory_localization_node.hpp"
 
-/*
-
-/home/active_stereo/catkin_ws/src/ENGR-4200-Project/dory_localization/src/dory_localization_node.cpp:47:82:   
-required from here /usr/include/boost/function/function_template.hpp:231:11: 
-error: no match for call to 
-(boost::_mfi::mf1
-    <void, DoryLoc::Node, const nav_msgs::Odometry_<std::allocator<void> >&>
-) (const boost::shared_ptr<const nav_msgs::Odometry_<std::allocator<void> > >&)
-
-*/
-
 // DVL A50 WL-21035-2 (assuming standard) long term sensor accuracy +-1.01%
 // https://yostlabs.com/product/3-space-nano/ - "sensor assist" AHRS on A50, specs on page 
 void DoryLoc::Node::dvlOdomCallback(const nav_msgs::Odometry::ConstPtr& odom) {
@@ -106,7 +95,15 @@ DoryLoc::Node::Node(Localizer<4> *filter, std::normal_distribution<double> pixha
     if(testingMode) {
         this->testSub = nh.subscribe<nav_msgs::Odometry>("odom", 1000, &Node::testingCallback, this); 
     } else {
+
+        // ROV_ODOMETRY we think is the filtered data combining DVL and Pixhawk IMU (at least on Nemo)
+        // SCALED_IMU2 is the IMU mavlink msg
+        // provided the DVL is configured correctly and the correct params are set, 
+        // LOCAL_POSITION_NED on mavlink is the result of filtering SCALED_IMU2 and VISION_POSITION_DELTA
+        // with an EKF  
         pixhawkSub = nh.subscribe<nav_msgs::Odometry>("ROV_ODOMETRY", 1000, &Node::pixhawkOdomCallback, this);
+        
+        // gotten directly from DVL via TCP
         dvlSub = nh.subscribe<nav_msgs::Odometry>("DVL_ODOM", 1000, &Node::dvlOdomCallback, this); 
     }
 

@@ -1,5 +1,5 @@
-#ifndef PARTICLE_FILTER_H
-#define PARTICLE_FILTER_H
+#ifndef DORY_PF_H
+#define DORY_PF_H
 
 #include <vector>
 #include <Eigen/Dense>
@@ -37,7 +37,7 @@ namespace DoryLoc {
         double valAng;
         double angSigSq2;
 
-        ParticleFilter() : ParticleFilter(500, 0.2, 0.174533, 0., 0., 0., 1.5) {
+        ParticleFilter() : ParticleFilter(500, 0.0101, 0.0101, 0., 0., 0., 1.5) {//: ParticleFilter(500, 0.2, 0.174533, 0., 0., 0., 1.5) {
             // DVL A50 WL-21035-2 TODO - find out if have standard or performance version
             // standard has long term sensor (velocity) accuracy of +-1.01%, perf has +-0.1%
         }
