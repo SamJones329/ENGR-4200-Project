@@ -41,7 +41,7 @@ namespace DoryLoc {
         void testingCallback(const nav_msgs::Odometry::ConstPtr& odom);
 
         // Node(ros::NodeHandle &n, Localizer *filter, std::normal_distribution<double> pixhawkDistribution, std::normal_distribution<double> dvlDistribution);
-        Node(ParticleFilter *filter, std::normal_distribution<double> pixhawkDistribution, std::normal_distribution<double> dvlDistribution);
+        Node(ParticleFilter *filter, std::normal_distribution<double> pixhawkDistribution, std::normal_distribution<double> dvlDistribution, bool testingMode);
 
         void loop();
     };

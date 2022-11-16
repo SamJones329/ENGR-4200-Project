@@ -21,6 +21,7 @@
         output="screen"
     >
         <param name="algo" type="string" value="$(arg algo)" />
+        <param name="mode" type="string" value="$(arg mode)" />
     </node>
     <!-- RViz -->
     <node 

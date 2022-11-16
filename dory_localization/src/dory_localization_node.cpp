@@ -91,7 +91,7 @@ void DoryLoc::Node::testingCallback(const nav_msgs::Odometry::ConstPtr& odom) {
     this->filter->update(odomVec);
 }
 
-DoryLoc::Node::Node(ParticleFilter *filter, std::normal_distribution<double> pixhawkDistribution, std::normal_distribution<double> dvlDistribution)
+DoryLoc::Node::Node(ParticleFilter *filter, std::normal_distribution<double> pixhawkDistribution, std::normal_distribution<double> dvlDistribution, bool testingMode=false)
     : nh()
     , rd()
     , mt(rd())
@@ -99,22 +99,17 @@ DoryLoc::Node::Node(ParticleFilter *filter, std::normal_distribution<double> pix
     , dvlDist(dvlDistribution)
 {
     this->filter = filter;
-    // std::string algo;
-    // n.getParam("algo", algo);
-    // if(!algo.compare("particle_filter")) {
-    //     filter = &(DoryLoc::ParticleFilter());
-    // } else {
-    //     ROS_ERROR("No localization algorithm selected, exiting...");
-    //     exit(0);
-    // }
 
     this->pixhawkDist = pixhawkDistribution;
     this->dvlDist = dvlDistribution;
 
-    // dvlSub = n.subscribe<nav_msgs::Odometry>("DVL_ODOM", 10, dvlOdomCallback); 
-    this->testSub = nh.subscribe<nav_msgs::Odometry>("odom", 1000, &Node::testingCallback, this); 
+    if(testingMode) {
+        this->testSub = nh.subscribe<nav_msgs::Odometry>("odom", 1000, &Node::testingCallback, this); 
+    } else {
+        pixhawkSub = nh.subscribe<nav_msgs::Odometry>("ROV_ODOMETRY", 1000, &Node::pixhawkOdomCallback, this);
+        dvlSub = nh.subscribe<nav_msgs::Odometry>("DVL_ODOM", 1000, &Node::dvlOdomCallback, this); 
+    }
 
-    // pixhawkSub = n.subscribe<nav_msgs::Odometry>("ROV_ODOMETRY", 10, pixhawkOdomCallback);
 
     this->meanParticlePub = nh.advertise<geometry_msgs::PoseStamped>("mean_particle", 100);
     this->allParticlePub = nh.advertise<geometry_msgs::PoseArray>("particles", 100);
@@ -181,6 +176,14 @@ int main(int argc, char **argv) {
     std::normal_distribution<double> pixhawkDist{0., 0.05};
     std::normal_distribution<double> dvlDist{0., 0.01};
 
+    std::string mode;
+    bool testing = false;
+    n.getParam("mode", mode);
+    if(!mode.compare("test")) {
+        testing = true;
+        std::cout << "Testing mode selected" << std::endl;
+    }
+
     // std::string algo;
     // DoryLoc::Localizer* filter;
     // n.getParam("algo", algo);
@@ -193,7 +196,7 @@ int main(int argc, char **argv) {
     // }
     auto filter = DoryLoc::ParticleFilter();
     
-    DoryLoc::Node node(&filter, pixhawkDist, dvlDist);
+    DoryLoc::Node node(&filter, pixhawkDist, dvlDist, testing);
     // auto testSub = n.subscribe<nav_msgs::Odometry>("odom", 1000, &DoryLoc::Node::testingCallback, &node); 
 
     /*
