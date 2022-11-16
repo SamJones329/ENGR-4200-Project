@@ -91,7 +91,7 @@ void DoryLoc::Node::testingCallback(const nav_msgs::Odometry::ConstPtr& odom) {
     this->filter->update(odomVec);
 }
 
-DoryLoc::Node::Node(ParticleFilter *filter, std::normal_distribution<double> pixhawkDistribution, std::normal_distribution<double> dvlDistribution, bool testingMode=false)
+DoryLoc::Node::Node(Localizer<4> *filter, std::normal_distribution<double> pixhawkDistribution, std::normal_distribution<double> dvlDistribution, bool testingMode=false)
     : nh()
     , rd()
     , mt(rd())

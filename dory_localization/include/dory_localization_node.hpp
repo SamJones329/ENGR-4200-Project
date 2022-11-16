@@ -19,7 +19,7 @@ namespace DoryLoc {
         public:
 
         // DoryLoc::Localizer *filter;
-        DoryLoc::ParticleFilter *filter;
+        DoryLoc::Localizer<4> *filter;
         ros::NodeHandle nh;
         ros::Subscriber dvlSub;
         ros::Subscriber pixhawkSub;
@@ -41,7 +41,7 @@ namespace DoryLoc {
         void testingCallback(const nav_msgs::Odometry::ConstPtr& odom);
 
         // Node(ros::NodeHandle &n, Localizer *filter, std::normal_distribution<double> pixhawkDistribution, std::normal_distribution<double> dvlDistribution);
-        Node(ParticleFilter *filter, std::normal_distribution<double> pixhawkDistribution, std::normal_distribution<double> dvlDistribution, bool testingMode);
+        Node(Localizer<4> *filter, std::normal_distribution<double> pixhawkDistribution, std::normal_distribution<double> dvlDistribution, bool testingMode);
 
         void loop();
     };
