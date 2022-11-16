@@ -185,18 +185,21 @@ int main(int argc, char **argv) {
     }
 
     // std::string algo;
-    // DoryLoc::Localizer* filter;
+    // DoryLoc::Localizer<4>* filter;
     // n.getParam("algo", algo);
     // if(!algo.compare("particle_filter")) {
-    //     DoryLoc::Localizer f = DoryLoc::ParticleFilter();
+    //     std::cout << "Particle Filter selected" << std::endl;
+    //     DoryLoc::ParticleFilter f = DoryLoc::ParticleFilter();
     //     filter = &f;
     // } else {
     //     ROS_ERROR("No localization algorithm selected, exiting...");
     //     exit(0);
     // }
+    // DoryLoc::Node node(filter, pixhawkDist, dvlDist, testing);
+
     auto filter = DoryLoc::ParticleFilter();
-    
     DoryLoc::Node node(&filter, pixhawkDist, dvlDist, testing);
+    
     // auto testSub = n.subscribe<nav_msgs::Odometry>("odom", 1000, &DoryLoc::Node::testingCallback, &node); 
 
     /*
