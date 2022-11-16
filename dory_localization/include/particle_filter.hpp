@@ -1,3 +1,6 @@
+#ifndef PARTICLE_FILTER_H
+#define PARTICLE_FILTER_H
+
 #include <vector>
 #include <Eigen/Dense>
 #include <random>
@@ -232,3 +235,5 @@ namespace DoryLoc {
         }
     };
 }
+
+#endif

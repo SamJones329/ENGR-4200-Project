@@ -1,3 +1,6 @@
+#ifndef DORY_LOC_NODE_H
+#define DORY_LOC_NODE_H
+
 #include "ros/ros.h"
 #include "std_msgs/String.h"
 #include "nav_msgs/Odometry.h"
@@ -46,3 +49,5 @@ namespace DoryLoc {
         void loop();
     };
 }
+
+#endif
