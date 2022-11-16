@@ -15,18 +15,7 @@ error: no match for call to
 // https://yostlabs.com/product/3-space-nano/ - "sensor assist" AHRS on A50, specs on page 
 void DoryLoc::Node::dvlOdomCallback(const nav_msgs::Odometry::ConstPtr& odom) {
     geometry_msgs::Point pos = odom->pose.pose.position;
-    double noise = dvlDist(mt);
-    double x = pos.x, y = pos.y, z = pos.z; 
-    auto msgquat = odom->pose.pose.orientation; 
-    tf2::Quaternion tfquat;
-    tf2::convert(msgquat , tfquat);
-    tf2::Matrix3x3 m(tfquat);
-    double roll, pitch, yaw;
-    m.getRPY(roll, pitch, yaw);
-    x += noise;
-    y += noise;
-    z += noise;
-    yaw += noise;
+    double x = pos.x, y = pos.y, z = pos.z, yaw = odom->pose.pose.orientation.z; 
     std::vector<double> odomVec {x, y, z, yaw};
     this->filter->update(odomVec);
 }
@@ -34,20 +23,10 @@ void DoryLoc::Node::dvlOdomCallback(const nav_msgs::Odometry::ConstPtr& odom) {
 void DoryLoc::Node::pixhawkOdomCallback(const nav_msgs::Odometry::ConstPtr& odom) {
     geometry_msgs::Point pos = odom->pose.pose.position;
 
-    double noise = pixhawkDist(mt);
     double deltax = pos.x - lastOdom(0);
     double deltay = pos.y - lastOdom(1); 
     double deltaz = pos.z - lastOdom(2);
-    auto msgquat = odom->pose.pose.orientation; 
-    tf2::Quaternion tfquat;
-    tf2::convert(msgquat , tfquat);
-    tf2::Matrix3x3 m(tfquat);
-    double roll, pitch, yaw;
-    m.getRPY(roll, pitch, yaw);
-    deltax += noise;
-    deltay += noise;
-    deltaz += noise;
-    yaw += noise;
+    double yaw = odom->pose.pose.orientation.z;
     double cosLastYaw = cos(lastOdom(3));
     double sinLastYaw = sin(lastOdom(3));
     std::vector<double> odomVec {
