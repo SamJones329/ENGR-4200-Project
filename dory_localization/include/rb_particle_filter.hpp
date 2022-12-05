@@ -3,12 +3,26 @@
 #include "./localizer.hpp"
 
 using namespace Eigen;
+using namespace std;
 
 namespace DoryLoc
 {
-  template <int numParticles, int DoF>
-  class RBPF : public Localizer<DoF>
+  template <int numParticles>
+  class RBPF : public Localizer<6> // x, y, z, roll, pitch, yaw
   {
+
+    // Vector<double, DoF> state;
+    /** 
+     * Particles w/ state of form {
+     * 0, 1, 2: x, y, z, 
+     * 3, 4, 5: roll, pitch, yaw, 
+     * 6, 7, 8: xvel, yvel, zvel, 
+     * 9, 10, 11: rollvel, pitchvel, yawvel, 
+     * 12, 13, 14: xacc, yacc, zacc
+     * } */
+    Matrix<double, numParticles, 15> x;
+
+    uint32_t time;
 
     /**
      * @param m0 Initial state
@@ -18,15 +32,42 @@ namespace DoryLoc
     {
     }
 
-    void predict()
+    /**
+     * This prediction method is based on the Kalman Filter prediction step.
+     * 
+     * @param u The Action input to the prediction step. Should be a length 10 vector containing a 
+     * 9DOF IMU input plus timestamp in the form of the SCALED_IMU2 MAVLINK message (https://mavlink.io/en/messages/common.html#SCALED_IMU2).
+    */
+    void predict(vector<double> u)
     {
       // """Kalman filter prediction step"""
       // m_p = A @ m
       // P_p = A @ P @ A.T + Q
-      // return m_p, P_p
+      // return m_p, P_p 
+      uint32_t newTime = u.at(0);
+      auto timeDelta = newTime - time;
+      time = newTime;
+
+      // x, y, z, acc in mG
+      int16_t xacc = u.at(1);
+      int16_t yacc = u.at(2);
+      int16_t zacc = u.at(3);
+      int16_t xaccDelta = xacc - x[12];
+      int16_t yaccDelta = yacc - x[13];
+      int16_t zaccDelta = zacc - x[14];
+      
+      
+      // 
     }
 
-    void update()
+
+    /**
+     * This update method is based on the Kalman Filter update step.
+     * 
+     * @param z The Measurement input to the update step. Should be a 
+     * 
+    */
+    void update(vector<double> z)
     {
       // """
       // Kalman filter update step for scalar measurement
@@ -85,5 +126,5 @@ namespace DoryLoc
         // particle(i) = particle(indexes);
       }
     }
-  }
+  };
 }
