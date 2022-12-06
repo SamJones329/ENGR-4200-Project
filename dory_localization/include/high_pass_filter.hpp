@@ -1,11 +1,5 @@
 // Source: https://github.com/jimmyberg/DigitalFilters
 
-#ifndef DoryLocHighPassFilter
-#define DoryLocHighPassFilter
-
-#include <stdexcept>
-#include <cmath>
-
 namespace DoryLoc {
     /**
      * @brief      Class for high pass filter using bilinear transform.
@@ -36,7 +30,7 @@ namespace DoryLoc {
          *
          * @return     The new output value
          */
-        double update(double newValue) {
+        double update(double newValue) final{
             // Note that output before assignment equals y1 being y[n-1]
             output = amplFac * (newValue - x1 - output * y1c);
             x1 = newValue;
@@ -47,7 +41,7 @@ namespace DoryLoc {
          *
          * @return     The output.
          */
-        double getOutput() {return output;}
+        double getOutput() final{return output;}
         /**X
          * @brief      Force the output to a desired value
          *
@@ -66,5 +60,3 @@ namespace DoryLoc {
         double output = 0;
     };
 }
-
-#endif // DoryLocHighPassFilter
