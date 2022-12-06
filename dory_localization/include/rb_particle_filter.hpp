@@ -116,6 +116,7 @@ namespace DoryLoc
       // cooperative fusion of acceleromter and magnetometer to get global attitude deltas
       // calculate angle deltas from accelerometer and magnetometer
       // filtered acceleration vector NOTE - we assume the acceleration vector approximates direction of gravity
+      // source: https://wiki.dfrobot.com/How_to_Use_a_Three-Axis_Accelerometer_for_Tilt_Sensing
       Vector3d down {
         lpfx.update(acc[0], timeDelta, LPF_FREQ), 
         lpfy.update(acc[0], timeDelta, LPF_FREQ), 
