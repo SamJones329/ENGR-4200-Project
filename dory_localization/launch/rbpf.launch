@@ -1,11 +1,11 @@
 <launch>
   <!-- Source data -->
-  <include file="$(find dory_localization)/launch/bagfile_testing.launch">
+  <include file="$(find dory_localization)/launch/dory_bagfile_testing.launch">
   </include>
   <node
       pkg="dory_localization"
       type="node"
-      name="dory_pf_node"
+      name="dory_rbpf_node"
       output="screen"
   />
   <!-- RViz -->
@@ -13,7 +13,7 @@
     pkg="rviz" 
     type="rviz" 
     name="rviz" 
-    args="-d $(find dory_localization)/config/pf.rviz" 
+    args="-d $(find dory_localization)/config/rbpf.rviz" 
     output="screen"/>
   />
 </launch>

@@ -6,7 +6,7 @@
 
     <!-- This selects the algorithm will the localization node will run, 
     currently only particle_filter is available -->
-    <arg name="algo" default="particle_filter" />
+    <arg name="algo" default="rb_particle_filter" />
 
     <group if="$(eval mode == 'test')">
         <!-- Source data -->
@@ -17,7 +17,7 @@
     <node
         pkg="dory_localization"
         type="node"
-        name="dory_localization_node"
+        name="dory_pf_node"
         output="screen"
     >
         <param name="algo" type="string" value="$(arg algo)" />

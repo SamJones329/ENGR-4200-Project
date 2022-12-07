@@ -28,7 +28,6 @@ namespace DoryLoc
         double measYawNoise;
         std::mt19937 generator;
         std::uniform_real_distribution<double> distribution;
-        std::uniform_real_distribution<double> random_particle;
 
         VectorXd pWei;
         VectorXd pYaw;
@@ -48,7 +47,7 @@ namespace DoryLoc
 
         ParticleFilter(int num, double measRngNoise, double measYawNoise,
                        double xInit, double yInit, double yawInit, double particleRange)
-            : num(num), measRngNoise(measRngNoise), measYawNoise(measYawNoise), distribution(0, 1. / num), random_particle(0, num - 1), pWei(num), pxyz(ArrayXXd::Zero(3, num)), pYaw(num), valRng(1.0 / (measRngNoise * sqrt(2 * M_PI))), rngSigSq2(2. * pow(measRngNoise, 2)), valAng(1.0 / (measYawNoise * sqrt(2 * M_PI))), angSigSq2(2. * pow(measYawNoise, 2))
+            : num(num), measRngNoise(measRngNoise), measYawNoise(measYawNoise), distribution(0, 1. / num), pWei(num), pxyz(ArrayXXd::Zero(3, num)), pYaw(num), valRng(1.0 / (measRngNoise * sqrt(2 * M_PI))), rngSigSq2(2. * pow(measRngNoise, 2)), valAng(1.0 / (measYawNoise * sqrt(2 * M_PI))), angSigSq2(2. * pow(measYawNoise, 2))
         {
             std::uniform_real_distribution<double> posSpread(-particleRange, particleRange);
             std::uniform_real_distribution<double> angSpread(-M_PI, M_PI);
