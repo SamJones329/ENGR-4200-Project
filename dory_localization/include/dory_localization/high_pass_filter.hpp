@@ -5,6 +5,7 @@
 
 #include <stdexcept>
 #include <cmath>
+#include <boost/format.hpp>
 
 namespace DoryLoc {
     /**
@@ -26,7 +27,9 @@ namespace DoryLoc {
             y1c((idt * omega_c / 2) - 1),
             dt(idt){
                 if(omega_c < idt){
-                    throw std::domain_error("LowPassFilter constructor error: tua_c is smaller than the sample time dt.");
+                    auto err_format_str = boost::format("LowPassFilter constructor error: tua_c=%1% is smaller than the sample time dt=%2%. In particular the sampling frequency must be greater than to 2pi times the cutoff frequency.") % omega_c % idt;
+                    std::string err_str = err_format_str.str();
+                    throw std::domain_error(err_str);
                 }
             }
         /**

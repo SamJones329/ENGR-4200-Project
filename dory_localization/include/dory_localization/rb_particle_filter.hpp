@@ -25,7 +25,7 @@ namespace DoryLoc
     const double IMU_EFFECTIVE_SAMPLE_RATE = 10; // Hz
     const double LPF_FREQ = 3; // Hz
     const double INIT_TIME_DELTA = 1. / IMU_EFFECTIVE_SAMPLE_RATE;
-    const double HPF_FREQ = 3; // Hz
+    const double HPF_FREQ = 1; // Hz
     const double HPF_OMEGA_C  = 1. / (2 * M_PI * HPF_FREQ);
 
     // Low pass filters for acceleration measurements for attitude calculation 
