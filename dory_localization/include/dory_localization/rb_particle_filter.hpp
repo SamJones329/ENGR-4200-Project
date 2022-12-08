@@ -4,9 +4,12 @@
 #include "./low_pass_filter.hpp"
 #include <dory_localization/high_pass_filter.hpp>
 #include <dory_localization/low_pass_filter.hpp>
+#include <boost/format.hpp>
 
 #define RAD_TO_DEGR 180. / M_PI
-#define mG_TO_m 1000 * 9.81
+// #define mG_TO_mps2 1000 * 9.81
+#define mG_TO_mps2 0.00980665 // milligravity to m/s^2
+// #define mG_TO_mps2 0.00001 // milliGal to m/s^2
 #define NUM_PARTICLES 500
 
 using namespace Eigen;
@@ -21,6 +24,8 @@ namespace DoryLoc
   class RBPF 
   {
   private:
+
+    bool verbose;
 
     const double IMU_EFFECTIVE_SAMPLE_RATE = 10; // Hz
     const double LPF_FREQ = 3; // Hz
@@ -49,18 +54,18 @@ namespace DoryLoc
     // complement of A
     const double cA = 1 - A;
 
-    uint16_t lastAccX;
-    uint16_t lastAccY;
-    uint16_t lastAccZ;
-    double lastVelX;
-    double lastVelY;
-    double lastVelZ;
-    double lastAccRoll;
-    double lastAccPitch;
-    double lastMagYaw;
-    uint16_t lastGyroVelX;
-    uint16_t lastGyroVelY;
-    uint16_t lastGyroVelZ;
+    uint16_t lastAccX = 0; // m/s^2
+    uint16_t lastAccY = 0;
+    uint16_t lastAccZ = 0;
+    double lastVelX = 0; // m/s
+    double lastVelY = 0;
+    double lastVelZ = 0;
+    double lastAccRoll = 0; // rad
+    double lastAccPitch = 0;
+    double lastMagYaw = 0;
+    uint16_t lastGyroVelX = 0; // rad/s
+    uint16_t lastGyroVelY = 0;
+    uint16_t lastGyroVelZ = 0;
 
     // generator random dists
     std::random_device rd;
@@ -84,13 +89,34 @@ namespace DoryLoc
 
     uint32_t time;
 
+    /**
+     * Log string at info level for RBPF. Outputs 
+     * a string to std::cout of the form 
+     * <RBPF@address>: {fString}
+    */
+    void logInfo(boost::format fString) {
+      if(!verbose) return;
+      std::cout << "<RBPF@" << this << ">: " << fString.str() << std::endl;
+    }
+
+    /**
+     * Log string at info level for RBPF. Outputs 
+     * a string to std::cout of the form 
+     * <RBPF@address>: {str}
+    */
+    void logInfo(std::string str) {
+      if(!verbose) return;
+      std::cout << "<RBPF@" << this << ">: " << str << std::endl;
+    }
+
   public:
     /**
      * @param m0 Initial state
      *
      */
     RBPF(bool verbose = false)
-    : lpfx(LPF_FREQ, INIT_TIME_DELTA)
+    : verbose(verbose)
+    , lpfx(LPF_FREQ, INIT_TIME_DELTA)
     , lpfy(LPF_FREQ, INIT_TIME_DELTA)
     , lpfz(LPF_FREQ, INIT_TIME_DELTA)
     , hpfx(INIT_TIME_DELTA, HPF_OMEGA_C)
@@ -102,6 +128,16 @@ namespace DoryLoc
     , x(ArrayXXd::Zero(NUM_PARTICLES, 6))
     , wei(ArrayXd::Zero(NUM_PARTICLES))
     {
+      logInfo(boost::format("Creating Rao-Blackwellized Particle Filter with %1% particles") % NUM_PARTICLES);
+    }
+
+    /**
+     * Set an initial time to compare to and propogate from timestamps passed through predict
+     * 
+     * @param timestamp time in ms
+    */
+    void initTime(uint32_t timestamp) {
+      time = timestamp;
     }
 
     /**
@@ -111,23 +147,27 @@ namespace DoryLoc
      * 9DOF IMU input SCALED_IMU2 MAVLINK message (https://mavlink.io/en/messages/common.html#SCALED_IMU2).
      * @param timestamp The timestamp (ms) from the SCALED_IMU2 MAVLINK message. Represents time since boot.
     */
-    void predict(vector<uint16_t> u, uint32_t timestamp)
+    void predict(vector<double> u, uint32_t timestamp)
     {
+
       uint32_t timeDelta = timestamp - time;
       time = timestamp;
-      const double tic = timeDelta * 0.5; // trapezoidal integration coefficient for current timeDelta
+      const double tic = timeDelta * 0.0005; // (1/2) / 1000 // trapezoidal integration coefficient for current timeDelta (converted to s from ms)
 
       // x, y, z, acc in mG, convert to m/s^2
-      double xVelDelta = tic * (u.at(0) + lastAccX);
-      double yVelDelta = tic * (u.at(1) + lastAccY);
-      double zVelDelta = tic * (u.at(2) + lastAccZ);
-      lastAccX = u.at(0);
-      lastAccY = u.at(1);
-      lastAccZ = u.at(2);
+      const double xAcc = u.at(0) * mG_TO_mps2;
+      const double yAcc = u.at(1) * mG_TO_mps2;
+      const double zAcc = u.at(2) * mG_TO_mps2;
+      double xVelDelta = tic * (xAcc + lastAccX);
+      double yVelDelta = tic * (yAcc + lastAccY);
+      double zVelDelta = tic * (zAcc + lastAccZ);
+      lastAccX = xAcc;
+      lastAccY = yAcc;
+      lastAccZ = zAcc;
       double nextVelX = lastVelX + xVelDelta;
       double nextVelY = lastVelY + yVelDelta;
       double nextVelZ = lastVelZ + zVelDelta;
-      const double pic = tic * mG_TO_m; // integrates to position and converts to meters
+      const double pic = tic; // integrates to position and converts to meters
       Vector3d posDelta {
         pic * (lastVelX + nextVelX),
         pic * (lastVelY + nextVelY),
@@ -136,10 +176,15 @@ namespace DoryLoc
       lastVelX = nextVelX;
       lastVelY = nextVelY;
       lastVelZ = nextVelZ;
+      
+      logInfo(boost::format("tic: %1%, XYZacc: {%2%, %3%, %4%}, XYZdvel: {%5%, %6%, %7%} XYZvel: {%8%, %9%, %10%}") 
+        % tic
+        % xAcc % yAcc % zAcc
+        % xVelDelta % yVelDelta % zVelDelta
+        % nextVelX % nextVelY % nextVelZ);
 
 
-
-      // TODO Mason did not include data for magnetometer so this is currently unusable
+      // TODO data for magnetometer was not recorded so this is currently unusable
       // cooperative fusion of acceleromter and magnetometer to get global attitude deltas
       // calculate angle deltas from accelerometer and magnetometer
       // filtered acceleration vector NOTE - we assume the acceleration vector approximates direction of gravity
@@ -221,7 +266,22 @@ namespace DoryLoc
         x(i, 3) += particleAngDelta(0);
         x(i, 4) += particleAngDelta(1);
         x(i, 5) += particleAngDelta(2);
+
       }
+      logInfo(boost::format("Predicting @ time %1%ms w/ dTime %2%ms") % timestamp % timeDelta);
+      logInfo(boost::format("Got XYZRPY deltas {%1%, %2%, %3%, %4%, %5%, %6%} from inputs {%7%, %8%, %9%, %10%, %11%, %12%}") 
+        % posDelta(0) 
+        % posDelta(1) 
+        % posDelta(2) 
+        % gyroDelta(0) 
+        % gyroDelta(1) 
+        % gyroDelta(2)
+        % u.at(0)
+        % u.at(1)
+        % u.at(2)
+        % u.at(3)
+        % u.at(4)
+        % u.at(5));
 
     }
 
@@ -297,5 +357,43 @@ namespace DoryLoc
         // particle(i) = particle(indexes);
       }
     }
+
+
+    /**
+     * Get the mean particle of the filter based on particle states and weights.
+    */
+    Matrix<double, 6, 1> getBelief() {
+      logInfo("Getting belief");
+      Matrix<double, 6, 1> belief = ArrayXd::Zero(6);
+      for(int i = 0; i < NUM_PARTICLES; i++) {
+        belief(0) += x(i,0); 
+        belief(1) += x(i,1); 
+        belief(2) += x(i,2); 
+        belief(3) += x(i,3); 
+        belief(4) += x(i,4); 
+        belief(5) += x(i,5); 
+      }
+      belief(0) /= NUM_PARTICLES;
+      belief(1) /= NUM_PARTICLES;
+      belief(2) /= NUM_PARTICLES;
+      belief(3) /= NUM_PARTICLES;
+      belief(4) /= NUM_PARTICLES;
+      belief(5) /= NUM_PARTICLES;
+      return belief;
+    }
+
+    /**
+     * Get all particle states
+     * 
+     * @return The state matrix of particles. 1 row per particle of the form {x, y, z, roll, pitch, yaw, weight}
+     * with x, y, z being in m and roll, pitch, yaw being euler angles (rotated in YPR or ZYX order).
+    */
+   Matrix<double, NUM_PARTICLES, 7> getParticles() {
+    logInfo("Getting particles");
+    MatrixXd particles = x;
+    particles.conservativeResize(NoChange, 7);
+    particles.col(6) = wei;
+    return particles;
+   }
   };
 }
