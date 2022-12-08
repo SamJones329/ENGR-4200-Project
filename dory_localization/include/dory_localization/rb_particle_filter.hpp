@@ -31,7 +31,7 @@ namespace DoryLoc
     const double LPF_FREQ = 3; // Hz
     const double INIT_TIME_DELTA = 1. / IMU_EFFECTIVE_SAMPLE_RATE;
     const double HPF_FREQ = 1; // Hz
-    const double HPF_OMEGA_C  = 1. / (2 * M_PI * HPF_FREQ);
+    const double HPF_OMEGA_C  = 1. / (2 * M_PI * HPF_FREQ); // take anything over 1Hz
 
     // Low pass filters for acceleration measurements for attitude calculation 
     // SCALED_IMU2 ros topic publishes at ~10Hz so we go for 3Hz as our cutoff freq 
@@ -41,10 +41,15 @@ namespace DoryLoc
     LowPassFilter lpfy;
     LowPassFilter lpfz;
 
-    // High pass filters for integrated gyro measurements (angle)
+    // High pass filters for extracting non-gravity acceleration
     HighPassFilter hpfx;
     HighPassFilter hpfy;
     HighPassFilter hpfz;
+
+    // High pass filters for integrated gyro measurements (angle)
+    // HighPassFilter hpfx;
+    // HighPassFilter hpfy;
+    // HighPassFilter hpfz;
 
     /** 
      * Complementary filter gain. Used as follows:
@@ -176,6 +181,9 @@ namespace DoryLoc
       if(timeDelta > 2000) { // 2s
         logWarn(boost::format("Found large time gap dTime=%1%ms. Ignoring measurements and resetting internal time.") % timeDelta);
         return;
+      } else if (timeDelta <= 0) {
+        logWarn(boost::format("Found time gap <=0 dTime=%1%. Ignoring measurements and resetting internal time.") % timeDelta);
+        return;
       }
 
       const double tdc = 1 / (timeDelta * 0.001); // time derivative constant, reciprocal deltaTime in seconds
@@ -196,6 +204,14 @@ namespace DoryLoc
       lastJerkY = yJerk;
       lastJerkZ = zJerk;
 
+      // use high pass filter to filter out low frequency noise
+      // hpfx.update(xAcc);
+      // hpfy.update(yAcc);
+      // hpfz.update(zAcc);
+      // double xAccLin = hpfx.getOutput();
+      // double yAccLin = hpfy.getOutput();
+      // double zAccLin = hpfz.getOutput();
+
       double xVelDelta = tic * (lastAccLinX + lastAccX);
       double yVelDelta = tic * (lastAccLinY + lastAccY);
       double zVelDelta = tic * (lastAccLinZ + lastAccZ);
@@ -213,12 +229,6 @@ namespace DoryLoc
       lastVelX = nextVelX;
       lastVelY = nextVelY;
       lastVelZ = nextVelZ;
-      
-      logInfo(boost::format("tic: %1% \n\tXYZacc: {%2%, %3%, %4%} \n\tXYZdvel: {%5%, %6%, %7%} \n\tXYZvel: {%8%, %9%, %10%}") 
-        % tic
-        % xAcc % yAcc % zAcc
-        % xVelDelta % yVelDelta % zVelDelta
-        % nextVelX % nextVelY % nextVelZ);
 
 
       // TODO data for magnetometer was not recorded so this is currently unusable
@@ -305,7 +315,14 @@ namespace DoryLoc
         x(i, 5) += particleAngDelta(2);
 
       }
-      logInfo(boost::format("Predicting @ time %1%ms w/ dTime %2%ms") % timestamp % timeDelta);
+      logInfo(boost::format("\nPredicting @ time %1%ms w/ dTime %2%ms") % timestamp % timeDelta);
+      logInfo(boost::format("tic: %1% \n\tXYZacc: {%2%, %3%, %4%} \n\tXYZlinAcc: {%5%, %6%, %7%} \n\tXYZdvel: {%8%, %9%, %10%} \n\tXYZvel: {%11%, %12%, %13%}") 
+        % tic
+        % xAcc % yAcc % zAcc
+        % xAccLin % yAccLin % zAccLin
+        % xVelDelta % yVelDelta % zVelDelta
+        % nextVelX % nextVelY % nextVelZ
+      );
       logInfo(boost::format("Got XYZRPY deltas \n\t{%1%, %2%, %3%, %4%, %5%, %6%} from inputs \n\t{%7%, %8%, %9%, %10%, %11%, %12%}") 
         % posDelta(0) 
         % posDelta(1) 

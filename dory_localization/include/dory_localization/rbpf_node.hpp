@@ -24,8 +24,10 @@ namespace DoryLoc {
         ros::NodeHandle nh;
         ros::Subscriber imuSub;
         ros::Subscriber dvlSub;
+        ros::Publisher dvlOdomPub;
         ros::Publisher dvlVisPub;
-        ros::Publisher beliefPub;
+        ros::Publisher beliefPosePub;
+        ros::Publisher beliefOdomPub;
         ros::Publisher particlesPub;
         ros::Publisher particleMarkersPub;
 
@@ -63,6 +65,8 @@ namespace DoryLoc {
         void dvlCallback(const nav_msgs::Odometry::ConstPtr& odom) {
             // dvl fused odometry visualizaation
             geometry_msgs::PoseStamped odomVis;
+            nav_msgs::Odometry odomFixed;
+            odomFixed.header.frame_id = "world";
             odomVis.header.frame_id = "world";
             odomVis.pose.position = odom->pose.pose.position;
             auto eulerAngles = odom->pose.pose.orientation;
@@ -80,7 +84,11 @@ namespace DoryLoc {
             odomVis.pose.position.x -= dvlInitX;
             odomVis.pose.position.y -= dvlInitY;
             odomVis.pose.position.z -= dvlInitZ;
+            
+            odomFixed.pose.pose = odomVis.pose;
             dvlVisPub.publish(odomVis);
+            dvlOdomPub.publish(odomFixed);
+
             
             // pass dvl odom as measurement until can figure out how to use DVL measurements directly
         }
@@ -91,8 +99,10 @@ namespace DoryLoc {
         , filter(true) 
         , imuSub(nh.subscribe<nav_msgs::Odometry>("SCALED_IMU2", 1000, &RBPFNode::imuCallback, this))
         , dvlSub(nh.subscribe<nav_msgs::Odometry>("DVL_ODOM", 1000, &RBPFNode::dvlCallback, this))
+        , dvlOdomPub(nh.advertise<nav_msgs::Odometry>("DVL_ODOM_QUAT", 100))
         , dvlVisPub(nh.advertise<geometry_msgs::PoseStamped>("DVL_ODOM_VIS", 100))
-        , beliefPub(nh.advertise<geometry_msgs::PoseStamped>("mean_particle", 100))
+        , beliefPosePub(nh.advertise<geometry_msgs::PoseStamped>("mean_particle_pose", 100))
+        , beliefOdomPub(nh.advertise<nav_msgs::Odometry>("mean_particle", 100))
         , particlesPub(nh.advertise<geometry_msgs::PoseArray>("particles", 100))
         , particleMarkersPub(nh.advertise<visualization_msgs::MarkerArray>("particle_markers", 100))
         {
@@ -110,47 +120,52 @@ namespace DoryLoc {
             meanMsg.pose.position.y = mean(1);
             meanMsg.pose.position.z = mean(2);
             tf2::Quaternion q;
-            q.setEuler(mean(5), mean(4), mean(3));
+            q.setEuler(mean(4), mean(3), mean(5));
             meanMsg.pose.orientation = tf2::toMsg(q);
             meanMsg.header.stamp = time; 
             meanMsg.header.frame_id = "odom";
-            beliefPub.publish(meanMsg);
+            beliefPosePub.publish(meanMsg);
 
-            auto particles = filter.getParticles();
-            geometry_msgs::PoseArray particlesMsg;
-            visualization_msgs::MarkerArray particleMarkersMsg;
-            particlesMsg.header.stamp = time;
-            particlesMsg.header.frame_id = "odom";
-            int idx = 0;
-            for(int i = 0; i < particles.rows(); i++) {// } auto particle : particles) {
-                auto particle = particles.row(i);
-                geometry_msgs::Pose p;
-                p.position.x = particle(0);
-                p.position.y = particle(1);
-                p.position.z = particle(2);
-                q.setEuler(particle(3), particle(4), particle(5));
-                p.orientation = tf2::toMsg(q);
-                particlesMsg.poses.push_back(p);
-                visualization_msgs::Marker m;
-                m.pose = p;
-                m.header.frame_id = "odom";
-                m.header.stamp = time;
-                m.id = idx++;
-                m.ns = "weights";
-                m.type = visualization_msgs::Marker::SPHERE;
-                m.action = visualization_msgs::Marker::ADD;
-                m.color.a = 0.5;
-                m.color.r = 0.0;
-                m.color.g = 1.0;
-                m.color.b = 1.0;
-                double scale = 0.01 + 2. * particle(6);
-                m.scale.x = scale;
-                m.scale.y = scale;
-                m.scale.z = 0.05;
-                particleMarkersMsg.markers.push_back(m);
-            }
-            particlesPub.publish(particlesMsg);
-            particleMarkersPub.publish(particleMarkersMsg);
+            nav_msgs::Odometry odomBelief;
+            odomBelief.header.frame_id = "odom";
+            odomBelief.pose.pose = meanMsg.pose;
+            beliefOdomPub.publish(odomBelief);
+
+            // auto particles = filter.getParticles();
+            // geometry_msgs::PoseArray particlesMsg;
+            // visualization_msgs::MarkerArray particleMarkersMsg;
+            // particlesMsg.header.stamp = time;
+            // particlesMsg.header.frame_id = "odom";
+            // int idx = 0;
+            // for(int i = 0; i < particles.rows(); i++) {// } auto particle : particles) {
+            //     auto particle = particles.row(i);
+            //     geometry_msgs::Pose p;
+            //     p.position.x = particle(0);
+            //     p.position.y = particle(1);
+            //     p.position.z = particle(2);
+            //     q.setEuler(particle(3), particle(4), particle(5));
+            //     p.orientation = tf2::toMsg(q);
+            //     particlesMsg.poses.push_back(p);
+            //     visualization_msgs::Marker m;
+            //     m.pose = p;
+            //     m.header.frame_id = "odom";
+            //     m.header.stamp = time;
+            //     m.id = idx++;
+            //     m.ns = "weights";
+            //     m.type = visualization_msgs::Marker::SPHERE;
+            //     m.action = visualization_msgs::Marker::ADD;
+            //     m.color.a = 0.5;
+            //     m.color.r = 0.0;
+            //     m.color.g = 1.0;
+            //     m.color.b = 1.0;
+            //     double scale = 0.01 + 2. * particle(6);
+            //     m.scale.x = scale;
+            //     m.scale.y = scale;
+            //     m.scale.z = 0.05;
+            //     particleMarkersMsg.markers.push_back(m);
+            // }
+            // particlesPub.publish(particlesMsg);
+            // particleMarkersPub.publish(particleMarkersMsg);
         }
     };
 }
