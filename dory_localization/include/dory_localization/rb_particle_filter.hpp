@@ -54,18 +54,24 @@ namespace DoryLoc
     // complement of A
     const double cA = 1 - A;
 
-    uint16_t lastAccX = 0; // m/s^2
-    uint16_t lastAccY = 0;
-    uint16_t lastAccZ = 0;
+    double lastAccX = 0; // m/s^2
+    double lastAccY = 0;
+    double lastAccZ = 0;
+    double lastJerkX = 0; // m/s^3
+    double lastJerkY = 0;
+    double lastJerkZ = 0;
+    double lastAccLinX = 0; // m/s^2, gravity removed
+    double lastAccLinY = 0;
+    double lastAccLinZ = 0;
     double lastVelX = 0; // m/s
     double lastVelY = 0;
     double lastVelZ = 0;
     double lastAccRoll = 0; // rad
     double lastAccPitch = 0;
     double lastMagYaw = 0;
-    uint16_t lastGyroVelX = 0; // rad/s
-    uint16_t lastGyroVelY = 0;
-    uint16_t lastGyroVelZ = 0;
+    double lastGyroVelX = 0; // rad/s
+    double lastGyroVelY = 0;
+    double lastGyroVelZ = 0;
 
     // generator random dists
     std::random_device rd;
@@ -109,6 +115,15 @@ namespace DoryLoc
       std::cout << "<RBPF@" << this << ">: " << str << std::endl;
     }
 
+    void logWarn(boost::format fString) {
+      std::cout << "\033[33m<RBPF@" << this << ":WARN>: " << fString << "\033[0m" << std::endl;
+    }
+
+    void logWarn(std::string str) {
+      std::cout << "\033[33m<RBPF@" << this << ":WARN>: " << str << "\033[0m" << std::endl;
+    }
+
+
   public:
     /**
      * @param m0 Initial state
@@ -138,6 +153,7 @@ namespace DoryLoc
     */
     void initTime(uint32_t timestamp) {
       time = timestamp;
+      logInfo(boost::format("Internal time set: %1%ms") % time);
     }
 
     /**
@@ -152,32 +168,53 @@ namespace DoryLoc
 
       uint32_t timeDelta = timestamp - time;
       time = timestamp;
+      
+      // ignore extremely large time gaps. this is both a 
+      // heuristic to handle scenarios where the info is 
+      // not received because the robot is turned off but 
+      // the node is still runinng, but also to handle time jumps from starting bag files during testing.
+      if(timeDelta > 2000) { // 2s
+        logWarn(boost::format("Found large time gap dTime=%1%ms. Ignoring measurements and resetting internal time.") % timeDelta);
+        return;
+      }
+
+      const double tdc = 1 / (timeDelta * 0.001); // time derivative constant, reciprocal deltaTime in seconds
       const double tic = timeDelta * 0.0005; // (1/2) / 1000 // trapezoidal integration coefficient for current timeDelta (converted to s from ms)
 
       // x, y, z, acc in mG, convert to m/s^2
+      // derivate to jerk and reintegrate to remove constant (gravity)
       const double xAcc = u.at(0) * mG_TO_mps2;
       const double yAcc = u.at(1) * mG_TO_mps2;
       const double zAcc = u.at(2) * mG_TO_mps2;
-      double xVelDelta = tic * (xAcc + lastAccX);
-      double yVelDelta = tic * (yAcc + lastAccY);
-      double zVelDelta = tic * (zAcc + lastAccZ);
-      lastAccX = xAcc;
-      lastAccY = yAcc;
-      lastAccZ = zAcc;
+      double xJerk = tdc * (xAcc - lastAccX);
+      double yJerk = tdc * (yAcc - lastAccY);
+      double zJerk = tdc * (zAcc - lastAccZ);
+      double xAccLin = tic * (xJerk - lastJerkX);
+      double yAccLin = tic * (yJerk - lastJerkY);
+      double zAccLin = tic * (zJerk - lastJerkZ);
+      lastJerkX = xJerk;
+      lastJerkY = yJerk;
+      lastJerkZ = zJerk;
+
+      double xVelDelta = tic * (lastAccLinX + lastAccX);
+      double yVelDelta = tic * (lastAccLinY + lastAccY);
+      double zVelDelta = tic * (lastAccLinZ + lastAccZ);
+      lastAccLinX = xAccLin;
+      lastAccLinY = yAccLin;
+      lastAccLinZ = zAccLin;
       double nextVelX = lastVelX + xVelDelta;
       double nextVelY = lastVelY + yVelDelta;
       double nextVelZ = lastVelZ + zVelDelta;
-      const double pic = tic; // integrates to position and converts to meters
       Vector3d posDelta {
-        pic * (lastVelX + nextVelX),
-        pic * (lastVelY + nextVelY),
-        pic * (lastVelZ + nextVelZ)
+        tic * (lastVelX + nextVelX),
+        tic * (lastVelY + nextVelY),
+        tic * (lastVelZ + nextVelZ)
       };
       lastVelX = nextVelX;
       lastVelY = nextVelY;
       lastVelZ = nextVelZ;
       
-      logInfo(boost::format("tic: %1%, XYZacc: {%2%, %3%, %4%}, XYZdvel: {%5%, %6%, %7%} XYZvel: {%8%, %9%, %10%}") 
+      logInfo(boost::format("tic: %1% \n\tXYZacc: {%2%, %3%, %4%} \n\tXYZdvel: {%5%, %6%, %7%} \n\tXYZvel: {%8%, %9%, %10%}") 
         % tic
         % xAcc % yAcc % zAcc
         % xVelDelta % yVelDelta % zVelDelta
@@ -269,7 +306,7 @@ namespace DoryLoc
 
       }
       logInfo(boost::format("Predicting @ time %1%ms w/ dTime %2%ms") % timestamp % timeDelta);
-      logInfo(boost::format("Got XYZRPY deltas {%1%, %2%, %3%, %4%, %5%, %6%} from inputs {%7%, %8%, %9%, %10%, %11%, %12%}") 
+      logInfo(boost::format("Got XYZRPY deltas \n\t{%1%, %2%, %3%, %4%, %5%, %6%} from inputs \n\t{%7%, %8%, %9%, %10%, %11%, %12%}") 
         % posDelta(0) 
         % posDelta(1) 
         % posDelta(2) 
@@ -363,7 +400,6 @@ namespace DoryLoc
      * Get the mean particle of the filter based on particle states and weights.
     */
     Matrix<double, 6, 1> getBelief() {
-      logInfo("Getting belief");
       Matrix<double, 6, 1> belief = ArrayXd::Zero(6);
       for(int i = 0; i < NUM_PARTICLES; i++) {
         belief(0) += x(i,0); 
@@ -379,6 +415,7 @@ namespace DoryLoc
       belief(3) /= NUM_PARTICLES;
       belief(4) /= NUM_PARTICLES;
       belief(5) /= NUM_PARTICLES;
+      logInfo(boost::format("Getting belief {%1%, %2%, %3%, %4%, %5%, %6%}") % belief(0) % belief(1) % belief(2) % belief(3) % belief(4) % belief(5));
       return belief;
     }
 

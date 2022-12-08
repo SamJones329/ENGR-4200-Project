@@ -34,6 +34,11 @@ namespace DoryLoc {
         double dvlInitY;
         double dvlInitZ;
 
+        uint32_t getRosTimeMs() {
+            const ros::Time time = ros::Time::now();
+            return time.sec * 1000 + time.nsec / 1000000;
+        }
+
         void imuCallback(const nav_msgs::Odometry::ConstPtr& sensorReadings) {
             vector<double> u; // {xacc, yacc, zacc, xangvel, yangvel, zangvel} check that values
             std::cout << "callback w/ vals {" 
@@ -50,11 +55,9 @@ namespace DoryLoc {
             u.push_back(sensorReadings->pose.pose.orientation.x);
             u.push_back(sensorReadings->pose.pose.orientation.y);
             u.push_back(sensorReadings->pose.pose.orientation.z);
-            auto time = ros::Time::now();
             // ideally would get timestamp like this sourced from SCALED_IMU2 mavlink message but is not set up to do that
             // uint32_t timestamp_ms = sensorReadings->header.stamp.sec * 1000 + sensorReadings->header.stamp.nsec / 1000000;
-            uint32_t timestamp_ms = time.sec * 1000 + time.nsec / 1000000;
-            filter.predict(u, timestamp_ms);
+            filter.predict(u, getRosTimeMs());
         }
 
         void dvlCallback(const nav_msgs::Odometry::ConstPtr& odom) {
@@ -94,6 +97,7 @@ namespace DoryLoc {
         , particleMarkersPub(nh.advertise<visualization_msgs::MarkerArray>("particle_markers", 100))
         {
             std::cout << "Hello from RBPF Node" << std::endl;
+            filter.initTime(getRosTimeMs());
         }
 
         void loop() {
