@@ -289,10 +289,11 @@ namespace DoryLoc
       // integral of vel from from prev time to cur time
       // we linearize this to calculate by trapezoidal rule
       // angleDelta =  deltaT * (v1 + v2) / 2
+      const double gic = tic * 0.001; // gyro integration constant, convert from mrad/s to rad/s
       Vector3d gyroDelta { // switch roll and pitch *******
-        tic * (lastGyroVelX + u.at(3)),
-        tic * (lastGyroVelY + u.at(4)),
-        tic * (lastGyroVelZ + u.at(5))
+        gic * (lastGyroVelX + u.at(3)),
+        gic * (lastGyroVelY + u.at(4)),
+        gic * (lastGyroVelZ + u.at(5))
       };
       lastGyroVelX = u.at(3);
       lastGyroVelY = u.at(4);
@@ -321,7 +322,7 @@ namespace DoryLoc
         
         // put in particle's ref frame
         Vector3d particlePosDelta = rot*posDelta;        
-        Vector3d particleAngDelta = rot*gyroDelta;
+        // Vector3d particleAngDelta = rot*gyroDelta;
         
 
         // TODO see above about lack of mag data
@@ -335,9 +336,9 @@ namespace DoryLoc
         x(i, 0) += particlePosDelta(0);
         x(i, 1) += particlePosDelta(1);
         x(i, 2) += particlePosDelta(2);
-        x(i, 3) += particleAngDelta(0);
-        x(i, 4) += particleAngDelta(1);
-        x(i, 5) += particleAngDelta(2);
+        // x(i, 3) += particleAngDelta(0);
+        // x(i, 4) += particleAngDelta(1);
+        x(i, 5) += gyroDelta(2);// particleAngDelta(2);
 
       }
       logInfo(boost::format("\nPredicting @ time %1%ms w/ dTime %2%ms") % timestamp % timeDelta);
