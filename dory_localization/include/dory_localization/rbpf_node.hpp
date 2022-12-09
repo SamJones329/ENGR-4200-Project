@@ -42,6 +42,10 @@ namespace DoryLoc {
         double dvlLastVelX = 0;
         double dvlLastVelY = 0;
         double dvlLastVelZ = 0;
+        double dvlLastX = 0;
+        double dvlLastY = 0;
+        double dvlLastZ = 0;
+        double dvlLastYaw = 0;
 
         uint32_t getRosTimeMs() {
             const ros::Time time = ros::Time::now();
@@ -58,21 +62,21 @@ namespace DoryLoc {
                 << sensorReadings->twist.twist.linear.y << ", "
                 << sensorReadings->twist.twist.linear.z << "}"
                 << std::endl;
-            u.push_back(sensorReadings->pose.pose.position.x);
-            u.push_back(sensorReadings->pose.pose.position.y);
-            u.push_back(sensorReadings->pose.pose.position.z);
+            u.push_back(dvlLastX);//sensorReadings->pose.pose.position.x);
+            u.push_back(dvlLastY);//sensorReadings->pose.pose.position.y);
+            u.push_back(dvlLastZ);//sensorReadings->pose.pose.position.z);
             u.push_back(sensorReadings->twist.twist.linear.x);
             u.push_back(sensorReadings->twist.twist.linear.y);
-            u.push_back(sensorReadings->twist.twist.linear.z);
+            u.push_back(dvlLastYaw);//sensorReadings->twist.twist.linear.z);
             // ideally would get timestamp like this sourced from SCALED_IMU2 mavlink message but is not set up to do that
             // uint32_t timestamp_ms = sensorReadings->header.stamp.sec * 1000 + sensorReadings->header.stamp.nsec / 1000000;
             
             auto vels = filter.predict(u, getRosTimeMs());
 
             nav_msgs::Odometry imuAccel;
-            imuAccel.pose.pose.position.x = u[0] * mG_TO_mps2;
-            imuAccel.pose.pose.position.y = u[1] * mG_TO_mps2;
-            imuAccel.pose.pose.position.z = u[2] * mG_TO_mps2 + 9.81;
+            imuAccel.pose.pose.position.x = (u[0] + imuBiasX) * mG_TO_mps2;
+            imuAccel.pose.pose.position.y = (u[1] + imuBiasY) * mG_TO_mps2;
+            imuAccel.pose.pose.position.z = (u[2] + imuBiasZ) * mG_TO_mps2;
             imuAccel.twist.twist.linear.x = vels[0];
             imuAccel.twist.twist.linear.y = vels[1];
             imuAccel.twist.twist.linear.z = vels[2];
@@ -91,20 +95,29 @@ namespace DoryLoc {
             odomVis.header.frame_id = "world";
             odomVis.pose.position = odom->pose.pose.position;
             auto eulerAngles = odom->pose.pose.orientation;
+            eulerAngles.x *= DEGR_TO_RAD;
+            eulerAngles.y *= DEGR_TO_RAD;
+            eulerAngles.z *= DEGR_TO_RAD;
             tf2::Quaternion tfquat;
-            tfquat.setEuler(eulerAngles.z, eulerAngles.y, eulerAngles.x);
+            // tfquat.setEuler(eulerAngles.y, eulerAngles.z, eulerAngles.x);
+
+            tfquat.setEuler(0, 0, -eulerAngles.z);
             geometry_msgs::Quaternion odomQuat;
             tf2::convert(tfquat, odomQuat);
             odomVis.pose.orientation = odomQuat;
             if(!dvlInitSet) {
-                dvlInitX = odom->pose.pose.position.x;
+                dvlInitX = odom->pose.pose.position.z;
                 dvlInitY = odom->pose.pose.position.y;
-                dvlInitZ = odom->pose.pose.position.z;
+                dvlInitZ = odom->pose.pose.position.x;
                 dvlInitSet = true;
             }
-            odomVis.pose.position.x -= dvlInitX;
+            odomVis.pose.position.z -= dvlInitX;
             odomVis.pose.position.y -= dvlInitY;
-            odomVis.pose.position.z -= dvlInitZ;
+            odomVis.pose.position.x -= dvlInitZ;
+            dvlLastX = odomVis.pose.position.x;
+            dvlLastY = odomVis.pose.position.y;
+            dvlLastZ = odomVis.pose.position.z;
+            dvlLastYaw = eulerAngles.x;
 
             odomFixed.pose.pose = odomVis.pose;
             dvlVisPub.publish(odomVis);
@@ -121,7 +134,7 @@ namespace DoryLoc {
             // NOTE: we think z and x are swapped with respect to the IMU. i.e. z is forward and x is down
             dvlAccel.pose.pose.position.z = (odom->twist.twist.linear.x - dvlLastVelX) * dTimeRecip;
             dvlAccel.pose.pose.position.y = (odom->twist.twist.linear.y - dvlLastVelY) * dTimeRecip;
-            dvlAccel.pose.pose.position.x = (odom->twist.twist.linear.z - dvlLastVelY) * dTimeRecip;
+            dvlAccel.pose.pose.position.x = (odom->twist.twist.linear.z - dvlLastVelZ) * dTimeRecip;
             dvlLastVelX = odom->twist.twist.linear.x;
             dvlLastVelY = odom->twist.twist.linear.y;
             dvlLastVelZ = odom->twist.twist.linear.z;

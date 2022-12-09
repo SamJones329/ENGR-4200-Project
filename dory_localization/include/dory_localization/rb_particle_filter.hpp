@@ -7,11 +7,18 @@
 #include <boost/format.hpp>
 
 #define RAD_TO_DEGR 180. / M_PI
+#define DEGR_TO_RAD M_PI / 180.
 // #define mG_TO_mps2 1000 * 9.81
 #define G 9.80665
-#define mG_TO_mps2 0.00980665 // milligravity to m/s^2
+#define mG_TO_mps2 0.000980665 // milligravity to m/s^2
 // #define mG_TO_mps2 0.00001 // milliGal to m/s^2
 #define NUM_PARTICLES 500
+#define imuBiasX 20.3
+#define imuBiasY 84.7
+#define imuBiasZ /*1000 -*/ 963.9 //got bias on floor so assuming is biased from gravity (1000)
+#define gyroBiasX -15.2
+#define gyroBiasY -5.7
+#define gyroBiasZ 4.1
 
 using namespace Eigen;
 using namespace std;
@@ -34,9 +41,6 @@ namespace DoryLoc
     const double HPF_FREQ = 1; // Hz
     const double HPF_OMEGA_C  = 1. / (2 * M_PI * HPF_FREQ);
     // Pixhawk 1 Dory raw IMU biases 
-    const double imuBiasX = 20.3;
-    const double imuBiasY = 84.7;
-    const double imuBiasZ = 1000 - 963.9; //got bias on floor so assuming is biased from gravity (1000)
     const double Measurement_Long_term_Accuracy = .0101;  // %  (DVL)
     const double rngSigSq2 = 2. * pow(Measurement_Long_term_Accuracy, 2);
     const double valrng = (1.0 / (Measurement_Long_term_Accuracy* sqrt(2 * M_PI)));
@@ -197,7 +201,7 @@ namespace DoryLoc
         logWarn(boost::format("Found large time gap dTime=%1%ms. Ignoring measurements and resetting internal time.") % timeDelta);
         return vector<double>{0,0,0};
       } else if (timeDelta <= 0) {
-        logWarn(boost::format("Found time gap <=0 dTime=%1%. Ignoring measurements and resetting internal time.") % timeDelta);
+        logWarn(boost::format("Found time gap <=0 dTime=%1%. Ignoring measurcosYements and resetting internal time.") % timeDelta);
         return vector<double>{0,0,0};
       }
 
@@ -208,18 +212,18 @@ namespace DoryLoc
       // x, y, z, acc in mG, convert to m/s^2
       const double xAcc = (u.at(0) + imuBiasX) * mG_TO_mps2;
       const double yAcc = (u.at(1) + imuBiasY) * mG_TO_mps2;
-      const double zAcc = (u.at(2) + imuBiasZ) * mG_TO_mps2 + G;
+      const double zAcc = (u.at(2) + imuBiasZ) * mG_TO_mps2;// + G;
       // derivate to jerk and reintegrate to remove constant (gravity)
-      double xJerk = tdc * (xAcc - lastAccX);
-      double yJerk = tdc * (yAcc - lastAccY);
-      double zJerk = tdc * (zAcc - lastAccZ);
+      // double xJerk = tdc * (xAcc - lastAccX);
+      // double yJerk = tdc * (yAcc - lastAccY);
+      // double zJerk = tdc * (zAcc - lastAccZ);
       double xAccLin = xAcc; //tic * (xJerk + lastJerkX);
       double yAccLin = yAcc; //tic * (yJerk + lastJerkY);
       double zAccLin = zAcc; //tic * (zJerk + lastJerkZ);
       // update stored jerk
-      lastJerkX = xJerk;
-      lastJerkY = yJerk;
-      lastJerkZ = zJerk;
+      // lastJerkX = xJerk;
+      // lastJerkY = yJerk;
+      // lastJerkZ = zJerk;
 
       // use high pass filter to filter out low frequency noise
       // hpfx.update(xAcc);
@@ -258,14 +262,17 @@ namespace DoryLoc
       lastAccLinY = yAccLin;
       lastAccLinZ = zAccLin;
 
-      double nextVelX = lastVelX + xVelDelta;
-      double nextVelY = lastVelY + yVelDelta;
-      double nextVelZ = lastVelZ + zVelDelta;
+      double nextVelX = u[0];//lastVelX + xVelDelta;
+      double nextVelY = u[1];//lastVelY + yVelDelta;
+      double nextVelZ = u[2];//lastVelZ + zVelDelta;
       vector<double> vels {nextVelX, nextVelY, nextVelZ};
       Vector3d posDelta {
-        tic * (lastVelX + nextVelX),
-        tic * (lastVelY + nextVelY),
-        tic * (lastVelZ + nextVelZ)
+        nextVelX - lastVelX, //pos from dvl rn
+        nextVelY - lastVelY,
+        nextVelZ - lastVelZ
+        // tic * (lastVelX + nextVelX),
+        // tic * (lastVelY + nextVelY),
+        // tic * (lastVelZ + nextVelZ)
       };
       // update stored linear velocity
       lastVelX = nextVelX;
@@ -294,15 +301,18 @@ namespace DoryLoc
       // integral of vel from from prev time to cur time
       // we linearize this to calculate by trapezoidal rule
       // angleDelta =  deltaT * (v1 + v2) / 2
+      const double gyroX = u[3] + gyroBiasX;
+      const double gyroY = u[4] + gyroBiasY;
+      const double gyroZ = u[5];// + gyroBiasZ;
       const double gic = tic * 0.001; // gyro integration constant, convert from mrad/s to rad/s
       Vector3d gyroDelta { // switch roll and pitch *******
-        gic * (lastGyroVelX + u.at(3)),
-        gic * (lastGyroVelY + u.at(4)),
-        gic * (lastGyroVelZ + u.at(5))
+        gic * (lastGyroVelX + gyroX),
+        gic * (lastGyroVelY + gyroY),
+        gyroZ - lastGyroVelZ//gic * (lastGyroVelZ + gyroZ)
       };
-      lastGyroVelX = u.at(3);
-      lastGyroVelY = u.at(4);
-      lastGyroVelZ = u.at(5);
+      lastGyroVelX = gyroX;
+      lastGyroVelY = gyroY;
+      lastGyroVelZ = gyroZ;
 
       // get rotation matrix for each particle
       // and rotate each delta to align with 
@@ -315,15 +325,15 @@ namespace DoryLoc
         const double cosX = cos(x(i,3)), cosY = cos(x(i,4)), cosZ = cos(x(i,5)),
           sinX = sin(x(i,3)), sinY = sin(x(i,4)), sinZ = sin(x(i,5));
         Matrix3d rot; 
-        rot(0,0) = cosZ*cosY*cosX - sinZ*sinX;
-        rot(0,1) = -sinZ*cosY*cosX - cosZ*sinX;
-        rot(0,2) = sinY*cosX;
-        rot(1,0) = cosZ*cosY*sinX + sinZ*cosX;
-        rot(1,1) = -sinZ*cosY*sinX + cosZ*cosX;
-        rot(1,2) = sinY*sinX;
-        rot(2,0) = -cosZ*sinY;
-        rot(2,1) = sinZ*sinY;
-        rot(2,2) = cosY;
+        rot(0,0) = cosZ;
+        rot(0,1) = -sinZ;
+        rot(0,2) = 0;
+        rot(1,0) = sinZ;
+        rot(1,1) = cosZ;
+        rot(1,2) = 0;
+        rot(2,0) = 0;
+        rot(2,1) = 0;
+        rot(2,2) = 1;
         
         // put in particle's ref frame
         Vector3d particlePosDelta = rot*posDelta;        
