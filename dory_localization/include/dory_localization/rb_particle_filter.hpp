@@ -8,6 +8,7 @@
 
 #define RAD_TO_DEGR 180. / M_PI
 // #define mG_TO_mps2 1000 * 9.81
+#define G 9.80665
 #define mG_TO_mps2 0.00980665 // milligravity to m/s^2
 // #define mG_TO_mps2 0.00001 // milliGal to m/s^2
 #define NUM_PARTICLES 500
@@ -190,16 +191,17 @@ namespace DoryLoc
       const double tic = timeDelta * 0.0005; // (1/2) / 1000 // trapezoidal integration coefficient for current timeDelta (converted to s from ms)
 
       // x, y, z, acc in mG, convert to m/s^2
-      // derivate to jerk and reintegrate to remove constant (gravity)
       const double xAcc = u.at(0) * mG_TO_mps2;
       const double yAcc = u.at(1) * mG_TO_mps2;
       const double zAcc = u.at(2) * mG_TO_mps2;
+      // derivate to jerk and reintegrate to remove constant (gravity)
       double xJerk = tdc * (xAcc - lastAccX);
       double yJerk = tdc * (yAcc - lastAccY);
       double zJerk = tdc * (zAcc - lastAccZ);
-      double xAccLin = tic * (xJerk - lastJerkX);
-      double yAccLin = tic * (yJerk - lastJerkY);
-      double zAccLin = tic * (zJerk - lastJerkZ);
+      double xAccLin = tic * (xJerk + lastJerkX);
+      double yAccLin = tic * (yJerk + lastJerkY);
+      double zAccLin = tic * (zJerk + lastJerkZ);
+      // update stored jerk
       lastJerkX = xJerk;
       lastJerkY = yJerk;
       lastJerkZ = zJerk;
@@ -212,9 +214,31 @@ namespace DoryLoc
       // double yAccLin = hpfy.getOutput();
       // double zAccLin = hpfz.getOutput();
 
-      double xVelDelta = tic * (lastAccLinX + lastAccX);
-      double yVelDelta = tic * (lastAccLinY + lastAccY);
-      double zVelDelta = tic * (lastAccLinZ + lastAccZ);
+
+      // TODO data for magnetometer was not recorded so this is currently unusable
+      // cooperative fusion of acceleromter and magnetometer to get global attitude deltas
+      // calculate angle deltas from accelerometer and magnetometer
+      // filtered acceleration vector NOTE - we assume the acceleration vector approximates direction of gravity
+      // source: https://wiki.dfrobot.com/How_to_Use_a_Three-Axis_Accelerometer_for_Tilt_Sensing
+      // Vector3d down {
+      //   lpfx.update(xAcc, timeDelta, LPF_FREQ), 
+      //   lpfy.update(yAcc, timeDelta, LPF_FREQ), 
+      //   lpfz.update(zAcc, timeDelta, LPF_FREQ)
+      // };
+      // Vector3d gravity = down * G;
+
+      // double xAccLin = xAcc - down(0);
+      // double yAccLin = yAcc - down(1);
+      // double zAccLin = zAcc - down(2);
+
+      // update stored acc
+      lastAccX = xAcc;
+      lastAccY = yAcc;
+      lastAccZ = zAcc;
+      double xVelDelta = tic * (lastAccLinX + xAccLin);
+      double yVelDelta = tic * (lastAccLinY + xAccLin);
+      double zVelDelta = tic * (lastAccLinZ + xAccLin);
+      // update stored linear acceleration
       lastAccLinX = xAccLin;
       lastAccLinY = yAccLin;
       lastAccLinZ = zAccLin;
@@ -226,21 +250,11 @@ namespace DoryLoc
         tic * (lastVelY + nextVelY),
         tic * (lastVelZ + nextVelZ)
       };
+      // update stored linear velocity
       lastVelX = nextVelX;
       lastVelY = nextVelY;
       lastVelZ = nextVelZ;
 
-
-      // TODO data for magnetometer was not recorded so this is currently unusable
-      // cooperative fusion of acceleromter and magnetometer to get global attitude deltas
-      // calculate angle deltas from accelerometer and magnetometer
-      // filtered acceleration vector NOTE - we assume the acceleration vector approximates direction of gravity
-      // source: https://wiki.dfrobot.com/How_to_Use_a_Three-Axis_Accelerometer_for_Tilt_Sensing
-      // Vector3d down {
-      //   lpfx.update(acc[0], timeDelta, LPF_FREQ), 
-      //   lpfy.update(acc[0], timeDelta, LPF_FREQ), 
-      //   lpfz.update(acc[0], timeDelta, LPF_FREQ)
-      // };
 
       // double accRoll = atan2(down[1], down[0]) * RAD_TO_DEGR;
       // double accDeltaRoll = accRoll - lastAccRoll;
@@ -257,7 +271,6 @@ namespace DoryLoc
       // double magYaw = atan2(north[0], north[1]) * RAD_TO_DEGR;
       // double magDeltaYaw = magYaw - lastMagYaw;
       // lastMagYaw = magYaw;
-
 
 
       // calculate angle deltas from gyro
