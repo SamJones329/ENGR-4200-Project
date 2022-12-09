@@ -173,8 +173,10 @@ namespace DoryLoc
     {
 
       uint32_t timeDelta = timestamp - time;
+      // if(timeDelta < 500) return;
       time = timestamp;
-      
+
+
       // ignore extremely large time gaps. this is both a 
       // heuristic to handle scenarios where the info is 
       // not received because the robot is turned off but 
@@ -187,20 +189,21 @@ namespace DoryLoc
         return;
       }
 
-      const double tdc = 1 / (timeDelta * 0.001); // time derivative constant, reciprocal deltaTime in seconds
+      const double timeDeltaSec = timeDelta * 0.001;
+      const double tdc = 1 / timeDeltaSec; // time derivative constant, reciprocal deltaTime in seconds
       const double tic = timeDelta * 0.0005; // (1/2) / 1000 // trapezoidal integration coefficient for current timeDelta (converted to s from ms)
 
       // x, y, z, acc in mG, convert to m/s^2
       const double xAcc = u.at(0) * mG_TO_mps2;
       const double yAcc = u.at(1) * mG_TO_mps2;
-      const double zAcc = u.at(2) * mG_TO_mps2;
+      const double zAcc = u.at(2) * mG_TO_mps2 + 9.81;
       // derivate to jerk and reintegrate to remove constant (gravity)
       double xJerk = tdc * (xAcc - lastAccX);
       double yJerk = tdc * (yAcc - lastAccY);
       double zJerk = tdc * (zAcc - lastAccZ);
-      double xAccLin = tic * (xJerk + lastJerkX);
-      double yAccLin = tic * (yJerk + lastJerkY);
-      double zAccLin = tic * (zJerk + lastJerkZ);
+      double xAccLin = xAcc; //tic * (xJerk + lastJerkX);
+      double yAccLin = yAcc; //tic * (yJerk + lastJerkY);
+      double zAccLin = zAcc; //tic * (zJerk + lastJerkZ);
       // update stored jerk
       lastJerkX = xJerk;
       lastJerkY = yJerk;
@@ -221,9 +224,9 @@ namespace DoryLoc
       // filtered acceleration vector NOTE - we assume the acceleration vector approximates direction of gravity
       // source: https://wiki.dfrobot.com/How_to_Use_a_Three-Axis_Accelerometer_for_Tilt_Sensing
       // Vector3d down {
-      //   lpfx.update(xAcc, timeDelta, LPF_FREQ), 
-      //   lpfy.update(yAcc, timeDelta, LPF_FREQ), 
-      //   lpfz.update(zAcc, timeDelta, LPF_FREQ)
+      //   lpfx.update(xAcc, timeDeltaSec, LPF_FREQ), 
+      //   lpfy.update(yAcc, timeDeltaSec, LPF_FREQ), 
+      //   lpfz.update(zAcc, timeDeltaSec, LPF_FREQ)
       // };
       // Vector3d gravity = down * G;
 
@@ -231,17 +234,18 @@ namespace DoryLoc
       // double yAccLin = yAcc - down(1);
       // double zAccLin = zAcc - down(2);
 
-      // update stored acc
-      lastAccX = xAcc;
-      lastAccY = yAcc;
-      lastAccZ = zAcc;
+      // // update stored acc
       double xVelDelta = tic * (lastAccLinX + xAccLin);
       double yVelDelta = tic * (lastAccLinY + xAccLin);
       double zVelDelta = tic * (lastAccLinZ + xAccLin);
+      lastAccX = xAcc;
+      lastAccY = yAcc;
+      lastAccZ = zAcc;
       // update stored linear acceleration
       lastAccLinX = xAccLin;
       lastAccLinY = yAccLin;
       lastAccLinZ = zAccLin;
+
       double nextVelX = lastVelX + xVelDelta;
       double nextVelY = lastVelY + yVelDelta;
       double nextVelZ = lastVelZ + zVelDelta;
@@ -277,7 +281,7 @@ namespace DoryLoc
       // integral of vel from from prev time to cur time
       // we linearize this to calculate by trapezoidal rule
       // angleDelta =  deltaT * (v1 + v2) / 2
-      Vector3d gyroDelta {
+      Vector3d gyroDelta { // switch roll and pitch *******
         tic * (lastGyroVelX + u.at(3)),
         tic * (lastGyroVelY + u.at(4)),
         tic * (lastGyroVelZ + u.at(5))
@@ -292,7 +296,7 @@ namespace DoryLoc
       // https://semath.info/src/euler-angle.html
       // Z/Psi/Yaw, Y/Pitch/Theta, X/Phi/Roll
       // transform gyro deltas from local XYZ to global RPY for each particle
-      for(int i = 0; i < NUM_PARTICLES; i++) {
+      for(int i = 0; i < NUM_PARTICLES; i++) { // switch roll and pitch **************
         // consts to avoid recalculation
         const double cosX = cos(x(i,3)), cosY = cos(x(i,4)), cosZ = cos(x(i,5)),
           sinX = sin(x(i,3)), sinY = sin(x(i,4)), sinZ = sin(x(i,5));

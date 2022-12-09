@@ -24,17 +24,24 @@ namespace DoryLoc {
         ros::NodeHandle nh;
         ros::Subscriber imuSub;
         ros::Subscriber dvlSub;
+        ros::Subscriber dvlVelSub;
         ros::Publisher dvlOdomPub;
         ros::Publisher dvlVisPub;
         ros::Publisher beliefPosePub;
         ros::Publisher beliefOdomPub;
         ros::Publisher particlesPub;
         ros::Publisher particleMarkersPub;
+        ros::Publisher dvlAccelPub;
+        ros::Publisher imuAccelPub;
 
         bool dvlInitSet = false;
+        double dvlVelTimeSec;
         double dvlInitX;
         double dvlInitY;
         double dvlInitZ;
+        double dvlLastVelX = 0;
+        double dvlLastVelY = 0;
+        double dvlLastVelZ = 0;
 
         uint32_t getRosTimeMs() {
             const ros::Time time = ros::Time::now();
@@ -47,18 +54,27 @@ namespace DoryLoc {
                 << sensorReadings->pose.pose.position.x << ", "
                 << sensorReadings->pose.pose.position.y << ", "
                 << sensorReadings->pose.pose.position.z << ", "
-                << sensorReadings->pose.pose.orientation.x << ", "
-                << sensorReadings->pose.pose.orientation.y << ", "
-                << sensorReadings->pose.pose.orientation.z << "}"
+                << sensorReadings->twist.twist.linear.x << ", "
+                << sensorReadings->twist.twist.linear.y << ", "
+                << sensorReadings->twist.twist.linear.z << "}"
                 << std::endl;
             u.push_back(sensorReadings->pose.pose.position.x);
             u.push_back(sensorReadings->pose.pose.position.y);
             u.push_back(sensorReadings->pose.pose.position.z);
-            u.push_back(sensorReadings->pose.pose.orientation.x);
-            u.push_back(sensorReadings->pose.pose.orientation.y);
-            u.push_back(sensorReadings->pose.pose.orientation.z);
+            u.push_back(sensorReadings->twist.twist.linear.x);
+            u.push_back(sensorReadings->twist.twist.linear.y);
+            u.push_back(sensorReadings->twist.twist.linear.z);
             // ideally would get timestamp like this sourced from SCALED_IMU2 mavlink message but is not set up to do that
             // uint32_t timestamp_ms = sensorReadings->header.stamp.sec * 1000 + sensorReadings->header.stamp.nsec / 1000000;
+
+            nav_msgs::Odometry imuAccel;
+            imuAccel.pose.pose.position.x = u[0] * mG_TO_mps2;
+            imuAccel.pose.pose.position.y = u[1] * mG_TO_mps2;
+            imuAccel.pose.pose.position.z = u[2] * mG_TO_mps2 + 9.81;
+            imuAccel.header.stamp = ros::Time::now();
+            imuAccelPub.publish(imuAccel);
+            std::cout << "imu callback" << std::endl;
+            
             filter.predict(u, getRosTimeMs());
         }
 
@@ -84,27 +100,49 @@ namespace DoryLoc {
             odomVis.pose.position.x -= dvlInitX;
             odomVis.pose.position.y -= dvlInitY;
             odomVis.pose.position.z -= dvlInitZ;
-            
+
             odomFixed.pose.pose = odomVis.pose;
             dvlVisPub.publish(odomVis);
             dvlOdomPub.publish(odomFixed);
-
             
             // pass dvl odom as measurement until can figure out how to use DVL measurements directly
+        }
+
+        void dvlVelCallback(const nav_msgs::Odometry::ConstPtr& odom) {
+            nav_msgs::Odometry dvlAccel;
+            double nextDvlTime = 0.001 * getRosTimeMs();
+            double dTimeRecip = 1 / (nextDvlTime - dvlVelTimeSec);
+            dvlVelTimeSec = nextDvlTime;
+            dvlAccel.pose.pose.position.x = (odom->twist.twist.linear.x - dvlLastVelX) * dTimeRecip;
+            dvlAccel.pose.pose.position.y = (odom->twist.twist.linear.y - dvlLastVelY) * dTimeRecip;
+            dvlAccel.pose.pose.position.z = (odom->twist.twist.linear.z - dvlLastVelY) * dTimeRecip;
+            dvlLastVelX = odom->twist.twist.linear.x;
+            dvlLastVelY = odom->twist.twist.linear.y;
+            dvlLastVelZ = odom->twist.twist.linear.z;
+            std::cout << "last vels: {" << dvlLastVelX << ", " << dvlLastVelY << ", " << dvlLastVelZ << "}" << std::endl; 
+            std::cout << "accels: {" 
+                << dvlAccel.pose.pose.position.x << ", "
+                << dvlAccel.pose.pose.position.y << ", "
+                << dvlAccel.pose.pose.position.z << "}" << std::endl;
+            dvlAccel.header.stamp = ros::Time::now();
+            dvlAccelPub.publish(dvlAccel);
         }
 
     public:
         RBPFNode() 
         : nh()
-        , filter(true) 
+        , filter(false) 
         , imuSub(nh.subscribe<nav_msgs::Odometry>("SCALED_IMU2", 1000, &RBPFNode::imuCallback, this))
         , dvlSub(nh.subscribe<nav_msgs::Odometry>("DVL_ODOM", 1000, &RBPFNode::dvlCallback, this))
+        , dvlVelSub(nh.subscribe<nav_msgs::Odometry>("DVL_DOPPLER", 1000, &RBPFNode::dvlVelCallback, this))
         , dvlOdomPub(nh.advertise<nav_msgs::Odometry>("DVL_ODOM_QUAT", 100))
         , dvlVisPub(nh.advertise<geometry_msgs::PoseStamped>("DVL_ODOM_VIS", 100))
         , beliefPosePub(nh.advertise<geometry_msgs::PoseStamped>("mean_particle_pose", 100))
         , beliefOdomPub(nh.advertise<nav_msgs::Odometry>("mean_particle", 100))
         , particlesPub(nh.advertise<geometry_msgs::PoseArray>("particles", 100))
         , particleMarkersPub(nh.advertise<visualization_msgs::MarkerArray>("particle_markers", 100))
+        , dvlAccelPub(nh.advertise<nav_msgs::Odometry>("DVL_ACCEL", 100))
+        , imuAccelPub(nh.advertise<nav_msgs::Odometry>("IMU_ACCEL", 100))
         {
             std::cout << "Hello from RBPF Node" << std::endl;
             filter.initTime(getRosTimeMs());
