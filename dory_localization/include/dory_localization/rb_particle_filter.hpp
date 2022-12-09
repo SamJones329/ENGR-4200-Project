@@ -12,13 +12,14 @@
 #define G 9.80665
 #define mG_TO_mps2 0.000980665 // milligravity to m/s^2
 // #define mG_TO_mps2 0.00001 // milliGal to m/s^2
-#define NUM_PARTICLES 500
-#define imuBiasX 20.3
-#define imuBiasY 84.7
-#define imuBiasZ /*1000 -*/ 963.9 //got bias on floor so assuming is biased from gravity (1000)
-#define gyroBiasX -15.2
-#define gyroBiasY -5.7
-#define gyroBiasZ 4.1
+#define NUM_PARTICLES 1500
+#define imuBiasX -27.02//20.3
+#define imuBiasY 41.86//84.7
+#define imuBiasZ /*1000 -*/ 978.97 //963.9 //got bias on floor so assuming is biased from gravity (1000)
+#define gyroBiasX 1.38//-15.2
+#define gyroBiasY -26.62//-5.7
+#define gyroBiasZ 1.37//4.1
+#define M_PI_X_2 6.283185307179586232
 
 using namespace Eigen;
 using namespace std;
@@ -41,9 +42,11 @@ namespace DoryLoc
     const double HPF_FREQ = 1; // Hz
     const double HPF_OMEGA_C  = 1. / (2 * M_PI * HPF_FREQ);
     // Pixhawk 1 Dory raw IMU biases 
-    const double Measurement_Long_term_Accuracy = .0101;  // %  (DVL)
+    const double Measurement_Long_term_Accuracy = .0101 * 5;  // %  (DVL)
+    const double GarbageAssSensorNoise = .20;
     const double rngSigSq2 = 2. * pow(Measurement_Long_term_Accuracy, 2);
     const double valrng = (1.0 / (Measurement_Long_term_Accuracy* sqrt(2 * M_PI)));
+    const double resamplingRng = 0.5;
 
     // Low pass filters for acceleration measurements for attitude calculation 
     // SCALED_IMU2 ros topic publishes at ~10Hz so we go for 3Hz as our cutoff freq 
@@ -95,8 +98,11 @@ namespace DoryLoc
     std::mt19937 generator;
 
     // distribution for picking random particle during resampling
+    std::uniform_real_distribution<double> random_particle_start;
+    std::uniform_real_distribution<double> random_particle_angle;
     std::uniform_real_distribution<double> random_particle;
     std::uniform_real_distribution<double> random_offset_noise;
+    std::uniform_real_distribution<double> random_ang_offset_noise;
 
     /** 
      * Particles w/ state of form {
@@ -112,6 +118,18 @@ namespace DoryLoc
     Matrix<double, NUM_PARTICLES, 1> wei;
 
     uint32_t time;
+
+    double angleWrap(double ang) {
+      while (ang > M_PI)
+      {
+        ang -= M_PI_X_2;
+      }
+      while (ang <= -M_PI)
+      {
+        ang += M_PI_X_2;
+      }
+      return ang;
+    }
 
     /**
      * Log string at info level for RBPF. Outputs 
@@ -147,7 +165,7 @@ namespace DoryLoc
      * @param m0 Initial state
      *
      */
-    RBPF(bool verbose = false)
+    RBPF(double particleStartRange, bool verbose = false)
     : verbose(verbose)
     , lpfx(LPF_FREQ, INIT_TIME_DELTA)
     , lpfy(LPF_FREQ, INIT_TIME_DELTA)
@@ -157,14 +175,22 @@ namespace DoryLoc
     , hpfz(INIT_TIME_DELTA, HPF_OMEGA_C)
     , rd()
     , generator(rd())
-    , random_particle(0, NUM_PARTICLES - 1)
-    , random_offset_noise(-Measurement_Long_term_Accuracy, Measurement_Long_term_Accuracy)
+    , random_particle_start(-particleStartRange, particleStartRange)
+    , random_particle_angle(-M_PI, M_PI)
+    , random_particle(0, 1)
+    , random_offset_noise(-resamplingRng, resamplingRng)//-Measurement_Long_term_Accuracy - GarbageAssSensorNoise, Measurement_Long_term_Accuracy + GarbageAssSensorNoise)
+    , random_ang_offset_noise(-M_PI/4, M_PI/4)
     , x(ArrayXXd::Zero(NUM_PARTICLES, 6))
     , wei(ArrayXd::Zero(NUM_PARTICLES))
     {
       logInfo(boost::format("Creating Rao-Blackwellized Particle Filter with %1% particles") % NUM_PARTICLES);
     
-      for (int i = 0; i < NUM_PARTICLES; i++) {wei(i) = 1/NUM_PARTICLES;}
+      for (int i = 0; i < NUM_PARTICLES; i++) {
+        x(i, 0) = random_particle_start(generator);
+        x(i, 1) = random_particle_start(generator);
+        x(i, 2) = random_particle_start(generator);
+        wei(i) = 1/NUM_PARTICLES;
+      }
 
     }
 
@@ -264,17 +290,20 @@ namespace DoryLoc
       lastAccLinY = yAccLin;
       lastAccLinZ = zAccLin;
 
-      double nextVelX = u[0];//lastVelX + xVelDelta;
-      double nextVelY = u[1];//lastVelY + yVelDelta;
-      double nextVelZ = u[2];//lastVelZ + zVelDelta;
+      double nextVelX = lastVelX + xVelDelta;
+      double nextVelY = lastVelY + yVelDelta;
+      double nextVelZ = lastVelZ + zVelDelta;
+      // double nextVelX = u[0];
+      // double nextVelY = u[1];
+      // double nextVelZ = u[2];
       vector<double> vels {nextVelX, nextVelY, nextVelZ};
       Vector3d posDelta {
-        nextVelX - lastVelX, //pos from dvl rn
-        nextVelY - lastVelY,
-        nextVelZ - lastVelZ
-        // tic * (lastVelX + nextVelX),
-        // tic * (lastVelY + nextVelY),
-        // tic * (lastVelZ + nextVelZ)
+        // nextVelX - lastVelX, //pos from dvl rn
+        // nextVelY - lastVelY,
+        // nextVelZ - lastVelZ
+        tic * (lastVelX + nextVelX),
+        tic * (lastVelY + nextVelY),
+        tic * (lastVelZ + nextVelZ)
       };
       // update stored linear velocity
       lastVelX = nextVelX;
@@ -355,7 +384,7 @@ namespace DoryLoc
         x(i, 2) += particlePosDelta(2);
         // x(i, 3) += particleAngDelta(0);
         // x(i, 4) += particleAngDelta(1);
-        x(i, 5) += gyroDelta(2);// particleAngDelta(2);
+        x(i, 5) = angleWrap(x(i, 5) + gyroDelta(2));// particleAngDelta(2);
 
       }
       logInfo(boost::format("\nPredicting @ time %1%ms w/ dTime %2%ms") % timestamp % timeDelta);
@@ -415,7 +444,7 @@ namespace DoryLoc
       Matrix<double, NUM_PARTICLES, 1> weights;
       for (int i = 0; i < NUM_PARTICLES; i++)
       {
-        double px = x(i, 0), py = x(1, i), pz = x(2, i), proll = x(3,i), ppitch = x(4,i), pyaw = x(5,i);
+        double px = x(i, 0), py = x(i, 1), pz = x(i, 2), proll = x(i,3), ppitch = x(i,4), pyaw = x(i,5);
         double wx = valrng * exp(-pow(x_pos - px, 2) / rngSigSq2);
         double wy = valrng * exp(-pow(y_pos - py, 2) / rngSigSq2);
         double wz = valrng * exp(-pow(z_pos - pz, 2) / rngSigSq2);
@@ -423,6 +452,7 @@ namespace DoryLoc
         if(yawDiff > M_PI) {
           yawDiff -= M_PI;
         }
+        if(yawDiff == 0) yawDiff = 1e-6;
         double wyaw = valrng * exp(-pow(yawDiff, 2) / rngSigSq2);
         double rollDiff = abs(roll - proll);
         if(rollDiff > M_PI) {
@@ -434,9 +464,18 @@ namespace DoryLoc
           pitchDiff -= M_PI;
         }
         double wpitch = valrng * exp(-pow(pitchDiff, 2) / rngSigSq2);
-        weights(i) = wx * wy * wz * wyaw * wroll * wpitch;
+        if(wx == 0) wx = 1e-6;
+        if(wy == 0) wy = 1e-6;
+        if(wz == 0) wz = 1e-6;
+        if(wyaw == 0) wyaw = 1e-6;
+        weights(i) = 2*wx + 2*wy + wz + 0.5*wyaw; // * wroll * wpitch;
+        if(wx == 0) logWarn("zero x");
+        if(wy == 0) logWarn("zero y");
+        if(wz == 0) logWarn("zero z");
+        if(wyaw == 0) logWarn(boost::format("zero yaw. wyaw %4% yawdiff: %1% valrng %2% rngsigsq2 %3%") % yawDiff % valrng % rngSigSq2 % wyaw);
       }
       double wsum = weights.sum();
+      std::cout << "wsum " << wsum << std::endl;
       weights /= wsum;
       wei = weights;
     }
@@ -461,16 +500,34 @@ namespace DoryLoc
       // cumulative_sum = np.cumsum(weights)
       VectorXd cumSum = ArrayXd::Zero(NUM_PARTICLES);
       cumSum(0) = wei(0);
+      positions(0) = random_particle(generator) / NUM_PARTICLES;
       for (int i = 1; i < NUM_PARTICLES; i++)
       {
         positions(i) = (i + this->random_particle(this->generator)) / NUM_PARTICLES;
         cumSum(i) = cumSum(i - 1) + wei(i);
       }
 
+      // N = len(weights)
+      // # make N subdivisions, and chose a random position within each one
+      // positions = (random(N) + range(N)) / N
+
+      // indexes = np.zeros(N, 'i')
+      // cumulative_sum = np.cumsum(weights)
+      // i, j = 0, 0
+      // while i < N:
+      //     if positions[i] < cumulative_sum[j]:
+      //         indexes[i] = j
+      //         i += 1
+      //     else:
+      //         j += 1
+      // return indexes
+
       int i = 0, j = 0;
       while (i < NUM_PARTICLES)
       {
-        if (positions(i) < cumSum(i))
+        // std::cout << "sri:" << i << " j: " << j << std::endl;
+        // std::cout << "Position: " << positions(i) << " CumSum: " << cumSum(j) << std::endl;
+        if (positions(i) < cumSum(j))
         {
           indexes(i) = j;
           i++;
@@ -486,10 +543,10 @@ namespace DoryLoc
       {
         // particle(i) = particle(indexes);
         VectorXd replacement = x.row(indexes(i));
-        replacement(0) += replacement(0) * random_offset_noise(generator);
-        replacement(1) += replacement(1) * random_offset_noise(generator);
-        replacement(2) += replacement(2) * random_offset_noise(generator);
-        replacement(5) += replacement(5) * random_offset_noise(generator);
+        replacement(0) += /*replacement(0) **/ random_offset_noise(generator);
+        replacement(1) += /*replacement(1) **/ random_offset_noise(generator);
+        replacement(2) += /*replacement(2) **/ random_offset_noise(generator);
+        replacement(5) = /*replacement(5) **/ angleWrap(replacement(5) + random_ang_offset_noise(generator));
         x.row(i) = replacement;
       }
     }
@@ -526,9 +583,18 @@ namespace DoryLoc
     */
    Matrix<double, NUM_PARTICLES, 7> getParticles() {
     logInfo("Getting particles");
-    MatrixXd particles = x;
-    particles.conservativeResize(NoChange, 7);
-    particles.col(6) = wei;
+    Matrix<double, NUM_PARTICLES, 7> particles;
+    for(int i = 0; i < NUM_PARTICLES; i++) {
+      particles(i,0) = x(i,0);
+      particles(i,1) = x(i,1);
+      particles(i,2) = x(i,2);
+      particles(i,3) = x(i,3);
+      particles(i,4) = x(i,4);
+      particles(i,5) = x(i,5);
+      particles(i,6) = wei(i);
+    }
+    // particles.conservativeResize(NoChange, 7);
+    // particles.col(6) = wei;
     return particles;
    }
   };

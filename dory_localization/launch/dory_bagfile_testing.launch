@@ -12,7 +12,8 @@
   
     <arg name="path1" default="true"/>
   
-    <arg if="$(arg path1)" name="bfName" default="$(find dory_localization)/bags/figureEight.bag"/>
+    <!-- <arg if="$(arg path1)" name="bfName" default="$(find dory_localization)/bags/figureEight.bag"/> -->
+    <arg if="$(arg path1)" name="bfName" default="$(find dory_localization)/bags/2022-11-30-20-51-14.bag"/>
 
     <!-- Bagfile -->
     <group if="$(arg bagfile)">

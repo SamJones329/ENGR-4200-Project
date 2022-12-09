@@ -62,12 +62,12 @@ namespace DoryLoc {
                 << sensorReadings->twist.twist.linear.y << ", "
                 << sensorReadings->twist.twist.linear.z << "}"
                 << std::endl;
-            u.push_back(dvlLastX);//sensorReadings->pose.pose.position.x);
-            u.push_back(dvlLastY);//sensorReadings->pose.pose.position.y);
-            u.push_back(dvlLastZ);//sensorReadings->pose.pose.position.z);
+            u.push_back(sensorReadings->pose.pose.position.x);//dvlLastX);//
+            u.push_back(sensorReadings->pose.pose.position.y);//dvlLastY);//
+            u.push_back(sensorReadings->pose.pose.position.z);//dvlLastZ);//
             u.push_back(sensorReadings->twist.twist.linear.x);
             u.push_back(sensorReadings->twist.twist.linear.y);
-            u.push_back(sensorReadings->twist.twist.linear.z);
+            u.push_back(sensorReadings->twist.twist.linear.z);//sensorReadings->twist.twist.linear.z);
             // ideally would get timestamp like this sourced from SCALED_IMU2 mavlink message but is not set up to do that
             // uint32_t timestamp_ms = sensorReadings->header.stamp.sec * 1000 + sensorReadings->header.stamp.nsec / 1000000;
             
@@ -101,7 +101,7 @@ namespace DoryLoc {
             tf2::Quaternion tfquat;
             // tfquat.setEuler(eulerAngles.y, eulerAngles.z, eulerAngles.x);
 
-            tfquat.setEuler(0, 0, -eulerAngles.z);
+            tfquat.setEuler(0, 0, eulerAngles.z);
             geometry_msgs::Quaternion odomQuat;
             tf2::convert(tfquat, odomQuat);
             odomVis.pose.orientation = odomQuat;
@@ -117,13 +117,14 @@ namespace DoryLoc {
             dvlLastX = odomVis.pose.position.x;
             dvlLastY = odomVis.pose.position.y;
             dvlLastZ = odomVis.pose.position.z;
-            dvlLastYaw = eulerAngles.x;
+            dvlLastYaw = eulerAngles.z;
 
             odomFixed.pose.pose = odomVis.pose;
             dvlVisPub.publish(odomVis);
             dvlOdomPub.publish(odomFixed);
             
             // pass dvl odom as measurement until can figure out how to use DVL measurements directly
+            filter.update(vector<double>{odomVis.pose.position.x, odomVis.pose.position.y, odomVis.pose.position.z, eulerAngles.x, eulerAngles.y, eulerAngles.z});
         }
 
         void dvlVelCallback(const nav_msgs::Odometry::ConstPtr& odom) {
@@ -150,18 +151,18 @@ namespace DoryLoc {
     public:
         RBPFNode() 
         : nh()
-        , filter(false) 
+        , filter(3, false) 
         , imuSub(nh.subscribe<nav_msgs::Odometry>("SCALED_IMU2", 1000, &RBPFNode::imuCallback, this))
         , dvlSub(nh.subscribe<nav_msgs::Odometry>("DVL_ODOM", 1000, &RBPFNode::dvlCallback, this))
         , dvlVelSub(nh.subscribe<nav_msgs::Odometry>("DVL_DOPPLER", 1000, &RBPFNode::dvlVelCallback, this))
-        , dvlOdomPub(nh.advertise<nav_msgs::Odometry>("DVL_ODOM_QUAT", 100))
-        , dvlVisPub(nh.advertise<geometry_msgs::PoseStamped>("DVL_ODOM_VIS", 100))
-        , beliefPosePub(nh.advertise<geometry_msgs::PoseStamped>("mean_particle_pose", 100))
-        , beliefOdomPub(nh.advertise<nav_msgs::Odometry>("mean_particle", 100))
-        , particlesPub(nh.advertise<geometry_msgs::PoseArray>("particles", 100))
-        , particleMarkersPub(nh.advertise<visualization_msgs::MarkerArray>("particle_markers", 100))
-        , dvlAccelPub(nh.advertise<nav_msgs::Odometry>("DVL_ACCEL", 100))
-        , imuAccelPub(nh.advertise<nav_msgs::Odometry>("IMU_ACCEL", 100))
+        , dvlOdomPub(nh.advertise<nav_msgs::Odometry>("DVL_ODOM_QUAT", 1000))
+        , dvlVisPub(nh.advertise<geometry_msgs::PoseStamped>("DVL_ODOM_VIS", 1000))
+        , beliefPosePub(nh.advertise<geometry_msgs::PoseStamped>("mean_particle_pose", 1000))
+        , beliefOdomPub(nh.advertise<nav_msgs::Odometry>("mean_particle", 1000))
+        , particlesPub(nh.advertise<geometry_msgs::PoseArray>("particles", 1000))
+        , particleMarkersPub(nh.advertise<visualization_msgs::MarkerArray>("particle_markers", 1000))
+        , dvlAccelPub(nh.advertise<nav_msgs::Odometry>("DVL_ACCEL", 1000))
+        , imuAccelPub(nh.advertise<nav_msgs::Odometry>("IMU_ACCEL", 1000))
         {
             std::cout << "Hello from RBPF Node" << std::endl;
             filter.initTime(getRosTimeMs());
@@ -188,41 +189,41 @@ namespace DoryLoc {
             odomBelief.pose.pose = meanMsg.pose;
             beliefOdomPub.publish(odomBelief);
 
-            // auto particles = filter.getParticles();
-            // geometry_msgs::PoseArray particlesMsg;
-            // visualization_msgs::MarkerArray particleMarkersMsg;
-            // particlesMsg.header.stamp = time;
-            // particlesMsg.header.frame_id = "odom";
-            // int idx = 0;
-            // for(int i = 0; i < particles.rows(); i++) {// } auto particle : particles) {
-            //     auto particle = particles.row(i);
-            //     geometry_msgs::Pose p;
-            //     p.position.x = particle(0);
-            //     p.position.y = particle(1);
-            //     p.position.z = particle(2);
-            //     q.setEuler(particle(3), particle(4), particle(5));
-            //     p.orientation = tf2::toMsg(q);
-            //     particlesMsg.poses.push_back(p);
-            //     visualization_msgs::Marker m;
-            //     m.pose = p;
-            //     m.header.frame_id = "odom";
-            //     m.header.stamp = time;
-            //     m.id = idx++;
-            //     m.ns = "weights";
-            //     m.type = visualization_msgs::Marker::SPHERE;
-            //     m.action = visualization_msgs::Marker::ADD;
-            //     m.color.a = 0.5;
-            //     m.color.r = 0.0;
-            //     m.color.g = 1.0;
-            //     m.color.b = 1.0;
-            //     double scale = 0.01 + 2. * particle(6);
-            //     m.scale.x = scale;
-            //     m.scale.y = scale;
-            //     m.scale.z = 0.05;
-            //     particleMarkersMsg.markers.push_back(m);
-            // }
-            // particlesPub.publish(particlesMsg);
-            // particleMarkersPub.publish(particleMarkersMsg);
+            auto particles = filter.getParticles();
+            geometry_msgs::PoseArray particlesMsg;
+            visualization_msgs::MarkerArray particleMarkersMsg;
+            particlesMsg.header.stamp = time;
+            particlesMsg.header.frame_id = "odom";
+            int idx = 0;
+            for(int i = 0; i < particles.rows(); i++) {// } auto particle : particles) {
+                auto particle = particles.row(i);
+                geometry_msgs::Pose p;
+                p.position.x = particle(0);
+                p.position.y = particle(1);
+                p.position.z = particle(2);
+                q.setEuler(particle(4), particle(3), particle(5));
+                p.orientation = tf2::toMsg(q);
+                particlesMsg.poses.push_back(p);
+                visualization_msgs::Marker m;
+                m.pose = p;
+                m.header.frame_id = "odom";
+                m.header.stamp = time;
+                m.id = idx++;
+                m.ns = "weights";
+                m.type = visualization_msgs::Marker::SPHERE;
+                m.action = visualization_msgs::Marker::ADD;
+                m.color.a = 0.5;
+                m.color.r = 0.0;
+                m.color.g = 1.0;
+                m.color.b = 1.0;
+                double scale = 0.01 + 2. * particle(6);
+                m.scale.x = scale;
+                m.scale.y = scale;
+                m.scale.z = 0.05;
+                particleMarkersMsg.markers.push_back(m);
+            }
+            particlesPub.publish(particlesMsg);
+            particleMarkersPub.publish(particleMarkersMsg);
         }
     };
 }
