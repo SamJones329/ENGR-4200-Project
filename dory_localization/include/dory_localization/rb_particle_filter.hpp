@@ -33,6 +33,10 @@ namespace DoryLoc
     const double INIT_TIME_DELTA = 1. / IMU_EFFECTIVE_SAMPLE_RATE;
     const double HPF_FREQ = 1; // Hz
     const double HPF_OMEGA_C  = 1. / (2 * M_PI * HPF_FREQ);
+    // Pixhawk 1 Dory raw IMU biases 
+    const double imuBiasX = 20.3;
+    const double imuBiasY = 84.7;
+    const double imuBiasZ = 1000 - 963.9; //got bias on floor so assuming is biased from gravity (1000)
     const double Measurement_Long_term_Accuracy = .0101;  // %  (DVL)
     const double rngSigSq2 = 2. * pow(Measurement_Long_term_Accuracy, 2);
     const double valrng = (1.0 / (Measurement_Long_term_Accuracy* sqrt(2 * M_PI)));
@@ -202,9 +206,9 @@ namespace DoryLoc
       const double tic = timeDelta * 0.0005; // (1/2) / 1000 // trapezoidal integration coefficient for current timeDelta (converted to s from ms)
 
       // x, y, z, acc in mG, convert to m/s^2
-      const double xAcc = u.at(0) * mG_TO_mps2;
-      const double yAcc = u.at(1) * mG_TO_mps2;
-      const double zAcc = u.at(2) * mG_TO_mps2 + 9.81;
+      const double xAcc = (u.at(0) + imuBiasX) * mG_TO_mps2;
+      const double yAcc = (u.at(1) + imuBiasY) * mG_TO_mps2;
+      const double zAcc = (u.at(2) + imuBiasZ) * mG_TO_mps2 + G;
       // derivate to jerk and reintegrate to remove constant (gravity)
       double xJerk = tdc * (xAcc - lastAccX);
       double yJerk = tdc * (yAcc - lastAccY);
