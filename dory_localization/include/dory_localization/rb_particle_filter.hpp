@@ -1,5 +1,6 @@
 #include <vector>
 #include <Eigen/Dense>
+#include <Eigen/Geometry>
 #include <random>
 #include "./low_pass_filter.hpp"
 #include <dory_localization/high_pass_filter.hpp>
@@ -97,7 +98,7 @@ namespace DoryLoc
      * 9, 10, 11: rollvel, pitchvel, yawvel, 
      * 12, 13, 14: xacc, yacc, zacc
      * } */
-    Matrix<double, NUM_PARTICLES, 6> x; // x, y, z, roll, pitch, yaw
+    Matrix<double, NUM_PARTICLES, 7> x; // x, y, z, ...quat
     
     /** Particle weights */
     Matrix<double, NUM_PARTICLES, 1> wei;
@@ -149,7 +150,7 @@ namespace DoryLoc
     , rd()
     , generator(rd())
     , random_particle(0, NUM_PARTICLES - 1)
-    , x(ArrayXXd::Zero(NUM_PARTICLES, 6))
+    , x(ArrayXXd::Zero(NUM_PARTICLES, 7))
     , wei(ArrayXd::Zero(NUM_PARTICLES))
     {
       logInfo(boost::format("Creating Rao-Blackwellized Particle Filter with %1% particles") % NUM_PARTICLES);
@@ -294,6 +295,15 @@ namespace DoryLoc
         tic * (lastGyroVelY + u.at(4)),
         tic * (lastGyroVelZ + u.at(5))
       };
+      const double theta = gyroDelta.norm();
+      const double halfTheta = theta * 0.5;
+      Vector3d gyroDeltaNormd = gyroDelta.normalized(); // TODO handle theta == 0
+      Quaterniond gyroDeltaQuat(
+        cos(halfTheta), 
+        gyroDeltaNormd(0) * sin(halfTheta),
+        gyroDeltaNormd(1) * sin(halfTheta),
+        gyroDeltaNormd(2) * sin(halfTheta)
+      );
       lastGyroVelX = u.at(3);
       lastGyroVelY = u.at(4);
       lastGyroVelZ = u.at(5);
@@ -321,7 +331,7 @@ namespace DoryLoc
         
         // put in particle's ref frame
         Vector3d particlePosDelta = rot*posDelta;        
-        Vector3d particleAngDelta = rot*gyroDelta;
+        // Vector3d particleAngDelta = rot*gyroDelta;
         
 
         // TODO see above about lack of mag data
@@ -335,10 +345,8 @@ namespace DoryLoc
         x(i, 0) += particlePosDelta(0);
         x(i, 1) += particlePosDelta(1);
         x(i, 2) += particlePosDelta(2);
-        x(i, 3) += particleAngDelta(0);
-        x(i, 4) += particleAngDelta(1);
-        x(i, 5) += particleAngDelta(2);
-
+        VectorXd curQuat = x.row(i).segment(3, 4);
+        x.row(i).segment(3,4) = curQuat * gyroDeltaQuat;
       }
       logInfo(boost::format("\nPredicting @ time %1%ms w/ dTime %2%ms") % timestamp % timeDelta);
       logInfo(boost::format("tic: %1% \n\tXYZacc: {%2%, %3%, %4%} \n\tXYZlinAcc: {%5%, %6%, %7%} \n\tXYZdvel: {%8%, %9%, %10%} \n\tXYZvel: {%11%, %12%, %13%}") 
@@ -472,8 +480,8 @@ namespace DoryLoc
     /**
      * Get the mean particle of the filter based on particle states and weights.
     */
-    Matrix<double, 6, 1> getBelief() {
-      Matrix<double, 6, 1> belief = ArrayXd::Zero(6);
+    Matrix<double, 7, 1> getBelief() {
+      Matrix<double, 7, 1> belief = ArrayXd::Zero(7);
       for(int i = 0; i < NUM_PARTICLES; i++) {
         belief(0) += x(i,0); 
         belief(1) += x(i,1); 
@@ -488,7 +496,7 @@ namespace DoryLoc
       belief(3) /= NUM_PARTICLES;
       belief(4) /= NUM_PARTICLES;
       belief(5) /= NUM_PARTICLES;
-      logInfo(boost::format("Getting belief {%1%, %2%, %3%, %4%, %5%, %6%}") % belief(0) % belief(1) % belief(2) % belief(3) % belief(4) % belief(5));
+      logInfo(boost::format("Getting belief {%1%, %2%, %3%, %4%, %5%, %6%, %7%}") % belief(0) % belief(1) % belief(2) % belief(3) % belief(4) % belief(5) % belief(6));
       return belief;
     }
 
@@ -498,11 +506,11 @@ namespace DoryLoc
      * @return The state matrix of particles. 1 row per particle of the form {x, y, z, roll, pitch, yaw, weight}
      * with x, y, z being in m and roll, pitch, yaw being euler angles (rotated in YPR or ZYX order).
     */
-   Matrix<double, NUM_PARTICLES, 7> getParticles() {
+   Matrix<double, NUM_PARTICLES, 8> getParticles() {
     logInfo("Getting particles");
     MatrixXd particles = x;
-    particles.conservativeResize(NoChange, 7);
-    particles.col(6) = wei;
+    particles.conservativeResize(NoChange, 8);
+    particles.col(7) = wei;
     return particles;
    }
   };
