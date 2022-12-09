@@ -177,7 +177,7 @@ namespace DoryLoc
      * 9DOF IMU input SCALED_IMU2 MAVLINK message (https://mavlink.io/en/messages/common.html#SCALED_IMU2).
      * @param timestamp The timestamp (ms) from the SCALED_IMU2 MAVLINK message. Represents time since boot.
     */
-    void predict(vector<double> u, uint32_t timestamp)
+    vector<double> predict(vector<double> u, uint32_t timestamp)
     {
 
       uint32_t timeDelta = timestamp - time;
@@ -191,10 +191,10 @@ namespace DoryLoc
       // the node is still runinng, but also to handle time jumps from starting bag files during testing.
       if(timeDelta > 2000) { // 2s
         logWarn(boost::format("Found large time gap dTime=%1%ms. Ignoring measurements and resetting internal time.") % timeDelta);
-        return;
+        return vector<double>{0,0,0};
       } else if (timeDelta <= 0) {
         logWarn(boost::format("Found time gap <=0 dTime=%1%. Ignoring measurements and resetting internal time.") % timeDelta);
-        return;
+        return vector<double>{0,0,0};
       }
 
       const double timeDeltaSec = timeDelta * 0.001;
@@ -257,6 +257,7 @@ namespace DoryLoc
       double nextVelX = lastVelX + xVelDelta;
       double nextVelY = lastVelY + yVelDelta;
       double nextVelZ = lastVelZ + zVelDelta;
+      vector<double> vels {nextVelX, nextVelY, nextVelZ};
       Vector3d posDelta {
         tic * (lastVelX + nextVelX),
         tic * (lastVelY + nextVelY),
@@ -361,6 +362,8 @@ namespace DoryLoc
         % u.at(3)
         % u.at(4)
         % u.at(5));
+
+      return vels;
 
     }
 

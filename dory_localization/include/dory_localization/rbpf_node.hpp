@@ -66,16 +66,21 @@ namespace DoryLoc {
             u.push_back(sensorReadings->twist.twist.linear.z);
             // ideally would get timestamp like this sourced from SCALED_IMU2 mavlink message but is not set up to do that
             // uint32_t timestamp_ms = sensorReadings->header.stamp.sec * 1000 + sensorReadings->header.stamp.nsec / 1000000;
+            
+            auto vels = filter.predict(u, getRosTimeMs());
 
             nav_msgs::Odometry imuAccel;
             imuAccel.pose.pose.position.x = u[0] * mG_TO_mps2;
             imuAccel.pose.pose.position.y = u[1] * mG_TO_mps2;
             imuAccel.pose.pose.position.z = u[2] * mG_TO_mps2 + 9.81;
+            imuAccel.twist.twist.linear.x = vels[0];
+            imuAccel.twist.twist.linear.y = vels[1];
+            imuAccel.twist.twist.linear.z = vels[2];
             imuAccel.header.stamp = ros::Time::now();
             imuAccelPub.publish(imuAccel);
             std::cout << "imu callback" << std::endl;
             
-            filter.predict(u, getRosTimeMs());
+
         }
 
         void dvlCallback(const nav_msgs::Odometry::ConstPtr& odom) {
@@ -113,17 +118,18 @@ namespace DoryLoc {
             double nextDvlTime = 0.001 * getRosTimeMs();
             double dTimeRecip = 1 / (nextDvlTime - dvlVelTimeSec);
             dvlVelTimeSec = nextDvlTime;
-            dvlAccel.pose.pose.position.x = (odom->twist.twist.linear.x - dvlLastVelX) * dTimeRecip;
+            // NOTE: we think z and x are swapped with respect to the IMU. i.e. z is forward and x is down
+            dvlAccel.pose.pose.position.z = (odom->twist.twist.linear.x - dvlLastVelX) * dTimeRecip;
             dvlAccel.pose.pose.position.y = (odom->twist.twist.linear.y - dvlLastVelY) * dTimeRecip;
-            dvlAccel.pose.pose.position.z = (odom->twist.twist.linear.z - dvlLastVelY) * dTimeRecip;
+            dvlAccel.pose.pose.position.x = (odom->twist.twist.linear.z - dvlLastVelY) * dTimeRecip;
             dvlLastVelX = odom->twist.twist.linear.x;
             dvlLastVelY = odom->twist.twist.linear.y;
             dvlLastVelZ = odom->twist.twist.linear.z;
             std::cout << "last vels: {" << dvlLastVelX << ", " << dvlLastVelY << ", " << dvlLastVelZ << "}" << std::endl; 
             std::cout << "accels: {" 
-                << dvlAccel.pose.pose.position.x << ", "
+                << dvlAccel.pose.pose.position.z << ", "
                 << dvlAccel.pose.pose.position.y << ", "
-                << dvlAccel.pose.pose.position.z << "}" << std::endl;
+                << dvlAccel.pose.pose.position.x << "}" << std::endl;
             dvlAccel.header.stamp = ros::Time::now();
             dvlAccelPub.publish(dvlAccel);
         }
