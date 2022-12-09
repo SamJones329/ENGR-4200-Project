@@ -157,9 +157,10 @@ namespace DoryLoc {
             meanMsg.pose.position.x = mean(0);
             meanMsg.pose.position.y = mean(1);
             meanMsg.pose.position.z = mean(2);
-            tf2::Quaternion q;
-            q.setEuler(mean(4), mean(3), mean(5));
-            meanMsg.pose.orientation = tf2::toMsg(q);
+            meanMsg.pose.orientation.w = mean(3);
+            meanMsg.pose.orientation.x = mean(4);
+            meanMsg.pose.orientation.y = mean(5);
+            meanMsg.pose.orientation.z = mean(6);
             meanMsg.header.stamp = time; 
             meanMsg.header.frame_id = "odom";
             beliefPosePub.publish(meanMsg);

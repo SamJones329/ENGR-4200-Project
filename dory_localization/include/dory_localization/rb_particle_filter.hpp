@@ -345,8 +345,12 @@ namespace DoryLoc
         x(i, 0) += particlePosDelta(0);
         x(i, 1) += particlePosDelta(1);
         x(i, 2) += particlePosDelta(2);
-        VectorXd curQuat = x.row(i).segment(3, 4);
-        x.row(i).segment(3,4) = curQuat * gyroDeltaQuat;
+        Quaterniond curQuat(x.row(i).segment(3, 4));
+        curQuat *= gyroDeltaQuat;
+        x(i, 3) = curQuat.w();
+        x(i, 4) = curQuat.x();
+        x(i, 5) = curQuat.y();
+        x(i, 6) = curQuat.z();
       }
       logInfo(boost::format("\nPredicting @ time %1%ms w/ dTime %2%ms") % timestamp % timeDelta);
       logInfo(boost::format("tic: %1% \n\tXYZacc: {%2%, %3%, %4%} \n\tXYZlinAcc: {%5%, %6%, %7%} \n\tXYZdvel: {%8%, %9%, %10%} \n\tXYZvel: {%11%, %12%, %13%}") 
