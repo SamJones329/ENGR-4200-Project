@@ -303,12 +303,12 @@ namespace DoryLoc
       // angleDelta =  deltaT * (v1 + v2) / 2
       const double gyroX = u[3] + gyroBiasX;
       const double gyroY = u[4] + gyroBiasY;
-      const double gyroZ = u[5];// + gyroBiasZ;
+      const double gyroZ = u[5] + gyroBiasZ;
       const double gic = tic * 0.001; // gyro integration constant, convert from mrad/s to rad/s
       Vector3d gyroDelta { // switch roll and pitch *******
         gic * (lastGyroVelX + gyroX),
         gic * (lastGyroVelY + gyroY),
-        gyroZ - lastGyroVelZ//gic * (lastGyroVelZ + gyroZ)
+        gic * (lastGyroVelZ + gyroZ)
       };
       lastGyroVelX = gyroX;
       lastGyroVelY = gyroY;

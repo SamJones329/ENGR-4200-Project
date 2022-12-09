@@ -67,7 +67,7 @@ namespace DoryLoc {
             u.push_back(dvlLastZ);//sensorReadings->pose.pose.position.z);
             u.push_back(sensorReadings->twist.twist.linear.x);
             u.push_back(sensorReadings->twist.twist.linear.y);
-            u.push_back(dvlLastYaw);//sensorReadings->twist.twist.linear.z);
+            u.push_back(sensorReadings->twist.twist.linear.z);
             // ideally would get timestamp like this sourced from SCALED_IMU2 mavlink message but is not set up to do that
             // uint32_t timestamp_ms = sensorReadings->header.stamp.sec * 1000 + sensorReadings->header.stamp.nsec / 1000000;
             
