@@ -34,7 +34,7 @@ namespace DoryLoc
     const double HPF_FREQ = 1; // Hz
     const double HPF_OMEGA_C  = 1. / (2 * M_PI * HPF_FREQ);
     const double Measurement_Long_term_Accuracy = .0101;  // %  (DVL)
-    const double rngSigSq2 = (2. * pow(Measurement_Long_term_Accuracy, 2);
+    const double rngSigSq2 = 2. * pow(Measurement_Long_term_Accuracy, 2);
     const double valrng = (1.0 / (Measurement_Long_term_Accuracy* sqrt(2 * M_PI)));
 
     // Low pass filters for acceleration measurements for attitude calculation 
@@ -154,7 +154,7 @@ namespace DoryLoc
     {
       logInfo(boost::format("Creating Rao-Blackwellized Particle Filter with %1% particles") % NUM_PARTICLES);
     
-      for (int i = 0; i < NUM_PARTICLES; i++) {wei(i) = 1/NUM_PARTICLE;}
+      for (int i = 0; i < NUM_PARTICLES; i++) {wei(i) = 1/NUM_PARTICLES;}
 
     }
 
@@ -346,8 +346,7 @@ namespace DoryLoc
         % xAcc % yAcc % zAcc
         % xAccLin % yAccLin % zAccLin
         % xVelDelta % yVelDelta % zVelDelta
-        % nextVelX % nextVelY % nextVelZ
-      );
+        % nextVelX % nextVelY % nextVelZ);
       logInfo(boost::format("Got XYZRPY deltas \n\t{%1%, %2%, %3%, %4%, %5%, %6%} from inputs \n\t{%7%, %8%, %9%, %10%, %11%, %12%}") 
         % posDelta(0) 
         % posDelta(1) 
@@ -392,33 +391,34 @@ namespace DoryLoc
      * @param z Vector of measurements from DVL's internal filter in form {x, y, z, roll, pitch, yaw}
     */
     void weight(vector<double> z) {
-      double x_pos = z[0], y_pos = z[1], z_pos = z[2], roll = z[3] ;
-      for (int i = 0; i < this->num; i++)
+      double x_pos = z[0], y_pos = z[1], z_pos = z[2], roll = z[3], pitch = z[4], yaw = z[5];
+      Matrix<double, NUM_PARTICLES, 1> weights;
+      for (int i = 0; i < NUM_PARTICLES; i++)
       {
-        double px = x(i, 0), py = x(1, i), pz = x(2, i), proll = px(3,i), ppitch = px(4,i), pyaw = px(5,i);
-        double wx = valrng * exp(-pow(x - px, 2) / rngSigSq2);
-        double wy = valrng * exp(-pow(y - py, 2) / rngSigSq2);
-        double wz = valrng * exp(-pow(z - pz, 2) / rngSigSq2);
-        double yawDiff = abs(x - pyaw);
+        double px = x(i, 0), py = x(1, i), pz = x(2, i), proll = x(3,i), ppitch = x(4,i), pyaw = x(5,i);
+        double wx = valrng * exp(-pow(x_pos - px, 2) / rngSigSq2);
+        double wy = valrng * exp(-pow(y_pos - py, 2) / rngSigSq2);
+        double wz = valrng * exp(-pow(z_pos - pz, 2) / rngSigSq2);
+        double yawDiff = abs(yaw - pyaw);
         if(yawDiff > M_PI) {
           yawDiff -= M_PI;
         }
-        double wyaw = valrng * exp(-pow(x - pyaw, 2) / rngSigSq2);
-        double rollDiff = abs(x - proll);
+        double wyaw = valrng * exp(-pow(yawDiff, 2) / rngSigSq2);
+        double rollDiff = abs(roll - proll);
         if(rollDiff > M_PI) {
           rollDiff -= M_PI;
         }
-        double wroll = valrng * exp(-pow(x - proll, 2) / rngSigSq2);
-        double pitchDiff = abs(x - ppitch);
-        if(yawpitch > M_PI) {
-          yawpitch -= M_PI;
+        double wroll = valrng * exp(-pow(rollDiff, 2) / rngSigSq2);
+        double pitchDiff = abs(pitch - ppitch);
+        if(pitchDiff > M_PI) {
+          pitchDiff -= M_PI;
         }
-        double wpitch = valrng * exp(-pow(x - ppitch, 2) / rngSigSq2);
+        double wpitch = valrng * exp(-pow(pitchDiff, 2) / rngSigSq2);
         weights(i) = wx * wy * wz * wyaw * wroll * wpitch;
       }
       double wsum = weights.sum();
       weights /= wsum;
-      this->pWei = weights;
+      wei = weights;
     }
 
     /**
