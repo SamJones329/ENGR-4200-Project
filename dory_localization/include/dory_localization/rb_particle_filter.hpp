@@ -96,6 +96,7 @@ namespace DoryLoc
 
     // distribution for picking random particle during resampling
     std::uniform_real_distribution<double> random_particle;
+    std::uniform_real_distribution<double> random_offset_noise;
 
     /** 
      * Particles w/ state of form {
@@ -157,6 +158,7 @@ namespace DoryLoc
     , rd()
     , generator(rd())
     , random_particle(0, NUM_PARTICLES - 1)
+    , random_offset_noise(-Measurement_Long_term_Accuracy, Measurement_Long_term_Accuracy)
     , x(ArrayXXd::Zero(NUM_PARTICLES, 6))
     , wei(ArrayXd::Zero(NUM_PARTICLES))
     {
@@ -483,6 +485,12 @@ namespace DoryLoc
       for (int i = 0; i < NUM_PARTICLES; i++)
       {
         // particle(i) = particle(indexes);
+        VectorXd replacement = x.row(indexes(i));
+        replacement(0) += replacement(0) * random_offset_noise(generator);
+        replacement(1) += replacement(1) * random_offset_noise(generator);
+        replacement(2) += replacement(2) * random_offset_noise(generator);
+        replacement(5) += replacement(5) * random_offset_noise(generator);
+        x.row(i) = replacement;
       }
     }
 
